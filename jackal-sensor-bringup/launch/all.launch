@@ -1,0 +1,16 @@
+<!-- 
+Bring up all the sensors on Jackal
+Currently realsense camera and velodyne lidar
+
+Author: shangzhouye2020@u.northwestern.edu
+Date  : 10 Oct 2020
+
+Changelog:
+	shangzhou - 10/10 - Initial commit 
+-->
+<launch>
+
+	<!-- Launch velodyne lidar -->
+	<include file="$(find jackal-sensor-bringup)/launch/velodyne.launch"/>
+	<include file="$(find jackal-sensor-bringup)/launch/realsense.launch"/>
+</launch>

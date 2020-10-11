@@ -1,0 +1,8 @@
+<launch>
+
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <!-- Include all available filers -->
+        <arg name="filters" value="pointcloud,disparity,spatial,temporal,hole_filling,decimation" />
+    </include>
+
+</launch>
