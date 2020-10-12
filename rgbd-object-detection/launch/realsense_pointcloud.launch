@@ -1,0 +1,13 @@
+<launch>
+
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <!-- Include all available filers -->
+        <arg name="filters" value="pointcloud,disparity,spatial,temporal,hole_filling,decimation" />
+        <!-- Have the full field of view -->
+        <arg name="allow_no_texture_points" value="true" />
+    </include>
+
+    <node name="rviz" pkg="rviz" type="rviz"  args="-d $(find rgbd-object-detection)/rviz/realsense_pointcloud.rviz"/>
+
+
+</launch>
