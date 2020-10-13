@@ -12,10 +12,22 @@
 #include <string>
 #include <iostream>
 
+typedef pcl::PointXYZ PointT;
+typedef pcl::PointCloud<PointT> PointCloud;
+
 void pointcloud2ply(const sensor_msgs::PointCloud2 &msg)
 {
     pcl::PointCloud<pcl::PointXYZ> cloud;
     pcl::fromROSMsg(msg, cloud);
+
+    // convert the pointcloud axis
+    for (size_t i = 0; i < cloud.points.size(); ++i)
+    {
+        float temp = cloud.points[i].x;
+        cloud.points[i].x = cloud.points[i].z;
+        cloud.points[i].z = -cloud.points[i].y;
+        cloud.points[i].y = -temp;
+    }
 
     static int id = 0;
     std::string file_name = std::to_string(id) + ".ply";
