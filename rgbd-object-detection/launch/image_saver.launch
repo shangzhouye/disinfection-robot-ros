@@ -1,0 +1,6 @@
+<launch>
+
+    <rosparam command="load" file="$(find rgbd-object-detection)/config/realsense.yaml" />
+    <node name="image_saver" pkg="rgbd-object-detection" type="image_saver" output="screen"/>
+
+</launch>

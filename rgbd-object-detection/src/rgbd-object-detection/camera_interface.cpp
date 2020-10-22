@@ -11,6 +11,7 @@
 #include <pcl/io/pcd_io.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <string>
 
 namespace disinfection_robot
 {
@@ -35,6 +36,19 @@ void CameraInterface::color_callback(const sensor_msgs::ImageConstPtr &msg)
     }
 
     color_ = cv_ptr->image;
+
+    if (if_save_rgb_)
+    {
+        static int image_id = 0;
+        std::ostringstream str;
+        str << image_id;
+        image_id++;
+        str << "_realsense_rgb.jpg";
+        std::string name = str.str();
+
+        cv::imwrite(name, color_);
+        ROS_INFO("Saved image %s", name.c_str());
+    }
 }
 
 void CameraInterface::depth_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -58,8 +72,10 @@ void CameraInterface::depth_callback(const sensor_msgs::ImageConstPtr &msg)
     // int u = depth_.cols / 2;
     // unsigned int center_depth = depth_.ptr<unsigned short>(v)[u];
     // std::cout << "Center depth in mm: " << center_depth << std::endl;
-
-    depth2pc(true);
+    if (if_depth2pc_)
+    {
+        depth2pc(true);
+    }
 }
 
 void CameraInterface::depth2pc(bool if_publish)

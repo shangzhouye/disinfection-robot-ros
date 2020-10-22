@@ -22,7 +22,6 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <string>
 
-
 namespace disinfection_robot
 {
 
@@ -57,6 +56,9 @@ public:
     ros::Publisher raw_cloud_pub_;
     std::string pc_frame_ = "camera_depth_optical_frame"; // the frame pc is published in
 
+    bool if_save_rgb_ = false; // whether save the rgb images to file
+    bool if_depth2pc_ = false;  // whether save the rgb images to file
+
 public:
     /*! \brief Store camera intrinsics; create subscribers
     *
@@ -69,6 +71,8 @@ public:
     *  \param depth_cy
     *  \param depth_fx - focal lengths (fx, fy)
     *  \param depth_fy
+    *  \param if_save_rgb
+    *  \param if_depth2pc
     */
     CameraInterface(ros::NodeHandle &nh,
                     double color_cx,
@@ -78,9 +82,12 @@ public:
                     double depth_cx,
                     double depth_cy,
                     double depth_fx,
-                    double depth_fy)
+                    double depth_fy,
+                    bool if_save_rgb = false,
+                    bool if_depth2pc = false)
         : it_(nh), color_cx_(color_cx), color_cy_(color_cy), color_fx_(color_fx), color_fy_(color_fy),
-          depth_cx_(depth_cx), depth_cy_(depth_cy), depth_fx_(depth_fx), depth_fy_(depth_fy)
+          depth_cx_(depth_cx), depth_cy_(depth_cy), depth_fx_(depth_fx), depth_fy_(depth_fy),
+          if_save_rgb_(if_save_rgb), if_depth2pc_(if_depth2pc)
     {
         color_K_ = (cv::Mat_<double>(3, 3) << color_fx_, 0, color_cx_,
                     0, color_fy_, color_cy_,

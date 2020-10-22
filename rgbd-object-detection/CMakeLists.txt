@@ -159,6 +159,10 @@ add_executable(pc2ply test/pc2ply.cpp)
 add_dependencies(pc2ply ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(pc2ply ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 
+add_executable(image_saver test/image_saver.cpp)
+add_dependencies(image_saver camera_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(image_saver camera_interface ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
