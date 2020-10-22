@@ -1,0 +1,21 @@
+<!-- 
+Launch realsense for rtabmap
+
+Author: shangzhouye2020@u.northwestern.edu
+Date  : 14 Oct 2020
+
+Changelog:
+	shangzhou - 14/10 - Initial commit 
+-->
+
+<launch>
+
+    <node name="imu_filter_node" pkg="imu_filter_madgwick" type="imu_filter_node" output="screen">
+        <param name="_use_mag" type="bool" value="false" />
+        <param name="_publish_tf" type="bool" value="false" />
+        <param name="_world_frame" type="string" value="enu" />
+        <remap from="/imu/data_raw" to="/camera/imu"/>
+        <remap from="/imu/data" to="/rtabmap/imu"/>
+    </node>
+
+</launch>

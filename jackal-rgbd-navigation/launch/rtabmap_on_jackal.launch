@@ -1,0 +1,28 @@
+<!-- 
+Launch rtabmap on Jackal using realsense rgb-d images and IMU
+
+Author: shangzhouye2020@u.northwestern.edu
+Date  : 14 Oct 2020
+
+Changelog:
+	shangzhou - 14/10 - Initial commit 
+-->
+
+<launch>
+
+    <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+        <arg name="rtabmap_args" value="--delete_db_on_start --Optimizer/GravitySigma 0.3"/>
+        <arg name="rgb_topic" value="/camera/color/image_raw"/>
+        <arg name="depth_topic" value="/camera/aligned_depth_to_color/image_raw"/>
+        <arg name="camera_info_topic" value="/camera/color/camera_info"/>
+        <arg name="rtabmapviz" value="false"/>
+        <arg name="rviz" value="false"/>
+        <arg name="approx_sync" value="false"/>
+        <arg name="wait_imu_to_init" value="true"/>
+        <arg name="imu_topic" value="/rtabmap/imu"/>
+        <arg name="map_frame_id" value="rtabmap_map"/>
+        <arg name="odom_topic" value="rtabmap_odom"/>
+    </include>
+
+
+</launch>
