@@ -1,7 +1,7 @@
 /// \file
 /// \brief The module contains help function to interface with the realsense rgb-d camera
 
-#include <rgbd-object-detection/camera_interface.hpp>
+#include <rgbd_object_detection/camera_interface.hpp>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>

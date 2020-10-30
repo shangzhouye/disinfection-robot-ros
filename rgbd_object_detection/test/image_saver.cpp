@@ -1,7 +1,7 @@
 /// \file
 /// \brief Saving rgb images
 
-#include <rgbd-object-detection/camera_interface.hpp>
+#include <rgbd_object_detection/camera_interface.hpp>
 #include "ros/ros.h"
 
 int main(int argc, char **argv)

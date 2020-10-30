@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(rgbd-object-detection)
+project(rgbd_object_detection)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   std_msgs
   image_transport
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,11 +51,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+    MaskrcnnResult.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -71,10 +71,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  sensor_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,8 +108,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES rgbd-object-detection
- CATKIN_DEPENDS roscpp rospy sensor_msgs cv_bridge std_msgs image_transport
+#  LIBRARIES rgbd_object_detection
+ CATKIN_DEPENDS roscpp rospy sensor_msgs cv_bridge std_msgs image_transport message_runtime
 #  DEPENDS system_lib
 )
 
@@ -135,10 +136,10 @@ add_definitions(${PCL_DEFINITIONS})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/rgbd-object-detection.cpp
+#   src/${PROJECT_NAME}/rgbd_object_detection.cpp
 # )
 
-add_library(camera_interface src/rgbd-object-detection/camera_interface.cpp)
+add_library(camera_interface src/rgbd_object_detection/camera_interface.cpp)
 add_dependencies(camera_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Add cmake target dependencies of the library
@@ -149,7 +150,7 @@ add_dependencies(camera_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_E
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/rgbd-object-detection_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/rgbd_object_detection_node.cpp)
 
 add_executable(camera_interface_test test/camera_interface_test.cpp)
 add_dependencies(camera_interface_test camera_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -225,7 +226,7 @@ target_link_libraries(image_saver camera_interface ${catkin_LIBRARIES} ${OpenCV_
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_rgbd-object-detection.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_rgbd_object_detection.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

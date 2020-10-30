@@ -67,9 +67,22 @@ class MaskRCNN:
         # end = time.time()
         # print("Inference time: ", end - start)
 
-        # visualize results
         # print("Classes list: ", outputs["instances"].pred_classes)
         # print("Bounding boxes", outputs["instances"].pred_boxes)
+
+
+        '''
+        Interested categories and their ids in pretrained model
+
+        bench       	13
+        chair	        56
+        couch	        57
+        dining table	60
+        '''
+        interested_ids = [13, 56, 57, 60]
+        
+
+        # visualize results
         visual = Visualizer(cv_image[:, :, ::-1], MetadataCatalog.get(self.cfg_.DATASETS.TRAIN[0]), scale=1)
         out = visual.draw_instance_predictions(outputs["instances"].to("cpu"))
         try:

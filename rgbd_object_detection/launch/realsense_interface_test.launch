@@ -1,0 +1,7 @@
+<launch>
+
+    <rosparam command="load" file="$(find rgbd_object_detection)/config/realsense.yaml" />
+    <node name="rviz" pkg="rviz" type="rviz"  args="-d $(find rgbd_object_detection)/rviz/realsense_interface_test.rviz"/>
+    <node name="camera_interface_test" pkg="rgbd_object_detection" type="camera_interface_test" output="screen"/>
+
+</launch>
