@@ -6,6 +6,7 @@ SUBSCRIBERS:
     camera/color/image_raw (sensor_msgs/Image): subscribe to the images from rgbd camera
 PUBLISHERS:
     maskrcnn (sensor_msgs/Image): visualization results from maskrcnn
+    maskrcnn/bbox (rgbd_object_detection/MaskrcnnResult): publish maskrcnn results
 '''
 
 from __future__ import print_function
@@ -43,7 +44,7 @@ class MaskRCNN:
         self.result_pub_ = rospy.Publisher("maskrcnn", Image, queue_size=10)
         self.result_bbox_pub_ = rospy.Publisher('maskrcnn/bbox', MaskrcnnResult, queue_size=10)
         self.bridge_ = CvBridge()
-        self.color_sub_ = rospy.Subscriber("camera/color/image_raw", Image, self.color_callback)
+        self.color_sub_ = rospy.Subscriber("camera/color/image_raw", Image, self.color_callback, queue_size=1)
 
         # detectron2 setup
         self.cfg_ = get_cfg()
@@ -109,6 +110,9 @@ class MaskRCNN:
 
 
     def color_callback(self, data):
+
+        if (data.header.seq % 5) != 0:
+            return
 
         # Read the image
         try:

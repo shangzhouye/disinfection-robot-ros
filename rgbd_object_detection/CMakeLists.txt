@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   image_transport
   message_generation
+  message_filters
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,7 +110,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES rgbd_object_detection
- CATKIN_DEPENDS roscpp rospy sensor_msgs cv_bridge std_msgs image_transport message_runtime
+ CATKIN_DEPENDS roscpp rospy sensor_msgs cv_bridge std_msgs image_transport message_runtime message_filters
 #  DEPENDS system_lib
 )
 
@@ -163,6 +164,10 @@ target_link_libraries(pc2ply ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES}
 add_executable(image_saver test/image_saver.cpp)
 add_dependencies(image_saver camera_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(image_saver camera_interface ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+
+add_executable(run_object_detection src/run_object_detection.cpp)
+add_dependencies(run_object_detection ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(run_object_detection ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
