@@ -1,5 +1,10 @@
 /// \file
 /// \brief Node for object detection and map building
+///
+/// PARAMETERS:
+///     Clustering parameters - cluster_tolerance, min_cluster_size, max_cluster_size
+///     Dowsampling voxel filter - resolution
+///     Color camera instrinsics - color_cx, color_cy , color_fx, color_fy
 
 #include "ros/ros.h"
 #include <sensor_msgs/PointCloud2.h>
@@ -18,6 +23,10 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <pcl_conversions/pcl_conversions.h>
+#include <vector>
+#include <pcl/segmentation/extract_clusters.h>
+#include "pcl/filters/extract_indices.h"
+#include <pcl/filters/voxel_grid.h>
 
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
@@ -28,6 +37,7 @@ float color_fx = 616.7605590820312;
 float color_fy = 617.09521484375;
 
 ros::Publisher objects_pub;
+ros::Publisher clustered_pub;
 
 /*! \brief extract the depth image by mask
 *
@@ -68,6 +78,77 @@ void extract_by_mask(const cv::Mat &depth, const cv::Mat &mask, std::vector<Poin
     }
 
     object_pc_list.push_back(current_cloud);
+}
+
+/*! \brief cluster the segmented object point cloud
+*
+*  \param object_cloud - segmented object point cloud; this pointcloud will be modified
+*/
+void find_largest_cluster(PointCloud::Ptr object_cloud,
+                          double cluster_tolerance = 0.1,
+                          int min_cluster_size = 50,
+                          int max_cluster_size = 307200)
+{
+
+    std::vector<pcl::PointIndices> object_indices;
+
+    pcl::EuclideanClusterExtraction<PointT> euclid;
+    euclid.setInputCloud(object_cloud);
+    euclid.setClusterTolerance(cluster_tolerance);
+    euclid.setMinClusterSize(min_cluster_size);
+    euclid.setMaxClusterSize(max_cluster_size);
+    euclid.extract(object_indices);
+
+    // Find the size of the largest object,
+    // where size = number of points in the cluster
+    size_t max_size = std::numeric_limits<size_t>::min();
+    int max_cluster_id = 0;
+    for (size_t i = 0; i < object_indices.size(); ++i)
+    {
+        size_t current_size = object_indices[0].indices.size();
+        if (current_size > max_size)
+        {
+            max_size = current_size;
+            max_cluster_id = i;
+        }
+    }
+
+    // ROS_INFO("Found %ld objects, max size: %ld",
+    //          object_indices.size(), max_size);
+
+    if (max_size == 0)
+    {
+        ROS_INFO("No cluster found.");
+        return;
+    }
+
+    // Reify indices into a point cloud of the object.
+    pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+    *indices = object_indices[max_cluster_id];
+    PointCloud::Ptr new_cloud(new PointCloud());
+    pcl::ExtractIndices<PointT> extract;
+    extract.setInputCloud(object_cloud);
+    extract.setIndices(indices);
+    extract.filter(*new_cloud);
+
+    new_cloud->swap(*object_cloud);
+}
+
+/*! \brief reduce the number of points using voxel filter (downsampling)
+*
+*  \param in_cloud - the input point cloud, this point cloud will be modified
+*  \param resolution - resolution of the filter
+*/
+void voxel_filter(PointCloud::Ptr in_cloud, double resolution)
+{
+    // std::cout << "Before filtering - point cloud has " << in_cloud->size() << " points." << std::endl;
+    pcl::VoxelGrid<PointT> voxel_filter;
+    voxel_filter.setLeafSize(resolution, resolution, resolution);
+    PointCloud::Ptr tmp(new PointCloud);
+    voxel_filter.setInputCloud(in_cloud);
+    voxel_filter.filter(*tmp);
+    tmp->swap(*in_cloud);
+    // std::cout << "After filtering - point cloud has " << in_cloud->size() << " points." << std::endl;
 }
 
 void mask_callback(const sensor_msgs::ImageConstPtr &depth,
@@ -141,6 +222,26 @@ void mask_callback(const sensor_msgs::ImageConstPtr &depth,
     objects_visual_msg.header.stamp = ros::Time::now();
     objects_visual_msg.header.frame_id = "camera_color_optical_frame";
     objects_pub.publish(objects_visual_msg);
+
+    // for each object cloud, do downsampling and clustering
+    for (auto each_object : objects_clouds)
+    {
+        voxel_filter(each_object, 0.02);
+        find_largest_cluster(each_object);
+    }
+
+    // visualize again after clustering
+    PointCloud::Ptr clustered_visual(new PointCloud);
+    for (int i = 0; i < objects_clouds.size(); i++)
+    {
+        *clustered_visual += *(objects_clouds[i]);
+    }
+    sensor_msgs::PointCloud2 clustered_visual_msg;
+    pcl::toROSMsg(*clustered_visual, clustered_visual_msg);
+
+    clustered_visual_msg.header.stamp = ros::Time::now();
+    clustered_visual_msg.header.frame_id = "camera_color_optical_frame";
+    clustered_pub.publish(clustered_visual_msg);
 }
 
 int main(int argc, char **argv)
@@ -152,6 +253,7 @@ int main(int argc, char **argv)
     message_filters::Subscriber<rgbd_object_detection::MaskrcnnResult> result_sub(nh, "maskrcnn/bbox", 1);
 
     objects_pub = nh.advertise<sensor_msgs::PointCloud2>("objects_clouds", 10);
+    clustered_pub = nh.advertise<sensor_msgs::PointCloud2>("clustered_clouds", 10);
 
     // message_filters::TimeSynchronizer<sensor_msgs::Image, rgbd_object_detection::MaskrcnnResult> sync(depth_sub, result_sub, 10);
 
