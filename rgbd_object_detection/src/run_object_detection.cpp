@@ -85,7 +85,7 @@ void extract_by_mask(const cv::Mat &depth, const cv::Mat &mask, std::vector<Poin
 *  \param object_cloud - segmented object point cloud; this pointcloud will be modified
 */
 void find_largest_cluster(PointCloud::Ptr object_cloud,
-                          double cluster_tolerance = 0.1,
+                          double cluster_tolerance = 0.05,
                           int min_cluster_size = 50,
                           int max_cluster_size = 307200)
 {
