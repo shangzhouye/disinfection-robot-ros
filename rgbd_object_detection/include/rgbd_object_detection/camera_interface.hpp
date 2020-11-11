@@ -57,7 +57,7 @@ public:
     std::string pc_frame_ = "camera_depth_optical_frame"; // the frame pc is published in
 
     bool if_save_rgb_ = false; // whether save the rgb images to file
-    bool if_depth2pc_ = false;  // whether save the rgb images to file
+    bool if_depth2pc_ = false;
 
 public:
     /*! \brief Store camera intrinsics; create subscribers

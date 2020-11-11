@@ -143,6 +143,12 @@ add_definitions(${PCL_DEFINITIONS})
 add_library(camera_interface src/rgbd_object_detection/camera_interface.cpp)
 add_dependencies(camera_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_library(object_detector src/rgbd_object_detection/object_detector.cpp src/rgbd_object_detection/pc_utils.cpp)
+add_dependencies(object_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_library(pc_utils src/rgbd_object_detection/pc_utils.cpp)
+add_dependencies(pc_utils ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -166,8 +172,8 @@ add_dependencies(image_saver camera_interface ${${PROJECT_NAME}_EXPORTED_TARGETS
 target_link_libraries(image_saver camera_interface ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 
 add_executable(run_object_detection src/run_object_detection.cpp)
-add_dependencies(run_object_detection ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(run_object_detection ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+add_dependencies(run_object_detection object_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(run_object_detection object_detector ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
