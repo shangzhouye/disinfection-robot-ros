@@ -10,7 +10,7 @@
 
     <!-- ############################ Testing ################################### -->
 
-    <!-- Initial guess -> Euler angles of multiple axis rotations (degrees) x:0 y:-110 z:90 -->
+    <!-- Initial guess -> Euler angles of multiple axis rotations (degrees) by zyx x:0 y:-110 z:90 -->
     <!-- <node pkg="tf" type="static_transform_publisher" name="camera2tmp" args="0 0 0 0.579228 -0.579228 0.4055798 0.4055798 camera_color_optical_frame tmp 100"/> -->
     <!-- <node pkg="tf" type="static_transform_publisher" name="tmp2fake_lidar" args="0.3 0 -1.3 0 0 0 tmp fake_lidar 100"/> -->
    
@@ -27,9 +27,9 @@
     <node pkg="tf" type="static_transform_publisher" name="camera2color_optical" args="-0.001 0.015 -0.000 -1.572 -0.002 -1.571 camera_link camera_color_optical_frame 100"/>
     <node pkg="tf" type="static_transform_publisher" name="camera2depth_optical" args="0.000 0.000 0.000 -1.571 -0.000 -1.571 camera_link camera_depth_optical_frame 100"/>
 
-    <node pkg="tf" type="static_transform_publisher" name="camera2tmp" args="0 0 0 0.579228 -0.579228 0.4055798 0.4055798 camera_color_optical_frame tmp 100"/>
-    <node pkg="tf" type="static_transform_publisher" name="tmp2velodyne" args="0.15 0 -0.95 0 0 0 tmp velodyne 100"/>
-    
+    <!-- Adjusted extrinsic from lidar to camera_link -->
+    <node pkg="tf" type="static_transform_publisher" name="velodyne2camera" args="-0.15 0 0.95 0 0.349066 0 velodyne camera_link 100"/>
+
 
 
 

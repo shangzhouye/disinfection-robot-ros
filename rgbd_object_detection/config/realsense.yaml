@@ -8,6 +8,14 @@ depth_cy: 242.30789184570312
 depth_fx: 379.6465148925781
 depth_fy: 379.6465148925781
 
-# camera lidar extrinsics
-Rcl: [1, 0, 0, 0, 1, 0, 0, 0, 1]
-tcl: [0, 0, 0]
+# transformation from velodyne to camera_link
+rpy_lc: [0, 0.349066, 0] # roll, pitch yall
+t_lc: [-0.15, 0, 0.95]
+
+
+# tranformation from camera_link to color/depth optical frame
+rpy_c2co: [-1.572, -0.002, -1.571]
+t_c2co: [-0.001, 0.015, -0.000]
+
+rpy_c2do: [-1.571, -0.000, -1.571]
+t_c2do: [0.000, 0.000, 0.000]
