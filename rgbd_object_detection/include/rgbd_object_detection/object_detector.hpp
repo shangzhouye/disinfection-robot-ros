@@ -6,7 +6,6 @@
 /// PARAMETERS:
 ///     Clustering parameters - cluster_tolerance, min_cluster_size, max_cluster_size
 ///     Dowsampling voxel filter - resolution
-///     Color camera instrinsics - color_cx, color_cy , color_fx, color_fy
 
 #include "ros/ros.h"
 #include <sensor_msgs/PointCloud2.h>
@@ -29,6 +28,7 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include "pcl/filters/extract_indices.h"
 #include <pcl/filters/voxel_grid.h>
+#include <rgbd_object_detection/camera_utils.hpp>
 
 namespace disinfection_robot
 {
@@ -40,11 +40,6 @@ class ObjectDetector
 {
 
 public:
-    float color_cx = 313.90618896484375;
-    float color_cy = 246.54579162597656;
-    float color_fx = 616.7605590820312;
-    float color_fy = 617.09521484375;
-
     ros::Publisher objects_pub_;
     ros::Publisher clustered_pub_;
 
@@ -54,10 +49,13 @@ public:
     typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, rgbd_object_detection::MaskrcnnResult> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> sync_;
 
+    Camera my_camera_;
+
 public:
     ObjectDetector(ros::NodeHandle &nh) : depth_sub_(nh, "camera/aligned_depth_to_color/image_raw", 1),
                                           result_sub_(nh, "maskrcnn/bbox", 1),
-                                          sync_(MySyncPolicy(10), depth_sub_, result_sub_)
+                                          sync_(MySyncPolicy(10), depth_sub_, result_sub_),
+                                          my_camera_(nh)
     {
 
         objects_pub_ = nh.advertise<sensor_msgs::PointCloud2>("objects_clouds", 10);

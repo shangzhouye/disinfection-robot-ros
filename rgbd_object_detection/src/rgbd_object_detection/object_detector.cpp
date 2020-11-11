@@ -50,9 +50,12 @@ void ObjectDetector::extract_by_mask(const cv::Mat &depth, const cv::Mat &mask, 
             }
 
             PointT p;
-            p.z = float(d);
-            p.x = (u - color_cx) * p.z / color_fx;
-            p.y = (v - color_cy) * p.z / color_fy;
+            Eigen::Matrix<float, 3, 1> p_l =
+                my_camera_.depth2camera(Eigen::Matrix<int, 2, 1>(u, v), d);
+
+            p.z = p_l[2];
+            p.x = p_l[0];
+            p.y = p_l[1];
 
             p.z /= 1000.0;
             p.x /= 1000.0;

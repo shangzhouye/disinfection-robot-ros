@@ -124,6 +124,7 @@ include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
   "include/"
+  "/usr/include/eigen3"
 )
 
 # OpenCV

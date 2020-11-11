@@ -7,3 +7,7 @@ depth_cx: 316.8928527832031
 depth_cy: 242.30789184570312
 depth_fx: 379.6465148925781
 depth_fy: 379.6465148925781
+
+# camera lidar extrinsics
+Rcl: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+tcl: [0, 0, 0]
