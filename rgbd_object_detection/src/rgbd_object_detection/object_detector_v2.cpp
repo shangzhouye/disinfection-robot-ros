@@ -27,6 +27,7 @@
 #include <pcl/surface/concave_hull.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <memory>
 
 namespace disinfection_robot
 {
@@ -34,27 +35,24 @@ namespace disinfection_robot
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
-void ObjectDetectorV2::extract_by_mask(PointCloud::Ptr input_pc, const cv::Mat &mask, std::vector<PointCloud::Ptr> &object_pc_list)
+void ObjectDetectorV2::extract_by_mask(PointCloud::Ptr input_pc,
+                                       const cv::Mat &mask,
+                                       std::vector<PointCloud::Ptr> &object_pc_list,
+                                       const PointCloudProjection &cloud_2d)
 {
     PointCloud::Ptr current_cloud(new PointCloud);
 
-    // traverse the pointcloud (todo: optimize this process)
     for (size_t i = 0; i < input_pc->points.size(); i++)
     {
-        Eigen::Matrix<double, 3, 1> p_l(input_pc->points[i].x,
-                                        input_pc->points[i].y,
-                                        input_pc->points[i].z);
-        Eigen::Matrix<int, 2, 1> p_s = my_camera_.lidar2pixel(p_l); // point position in sensor coordinate
-
         // if it is not inside image, continue
-        if (p_s[0] < 0 || p_s[0] > my_camera_.image_height_ ||
-            p_s[1] < 0 || p_s[1] > my_camera_.image_width_)
+        if (cloud_2d.points_2d[i][0] < 0 || cloud_2d.points_2d[i][0] > my_camera_.image_height_ ||
+            cloud_2d.points_2d[i][1] < 0 || cloud_2d.points_2d[i][1] > my_camera_.image_width_)
         {
             continue;
         }
 
         // if this point is not inside mask, continue
-        if (mask.ptr<unsigned char>(p_s[1])[p_s[0]] != 255)
+        if (mask.ptr<unsigned char>(cloud_2d.points_2d[i][1])[cloud_2d.points_2d[i][0]] != 255)
         {
             continue;
         }
@@ -115,6 +113,23 @@ void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
     new_cloud->swap(*object_cloud);
 }
 
+void ObjectDetectorV2::project2image_plane(PointCloud::Ptr in_cloud, PointCloudProjection &out_cloud_2d)
+{
+
+    for (size_t i = 0; i < in_cloud->points.size(); i++)
+    {
+        Eigen::Matrix<double, 3, 1> p_l(in_cloud->points[i].x,
+                                        in_cloud->points[i].y,
+                                        in_cloud->points[i].z);
+        Eigen::Matrix<int, 2, 1> p_s = my_camera_.lidar2pixel(p_l); // point position in sensor coordinate
+
+        out_cloud_2d.points_2d.push_back(p_s);
+        out_cloud_2d.depth.push_back(in_cloud->points[i].x);
+    }
+
+    return;
+}
+
 void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc,
                                      const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result)
 {
@@ -150,8 +165,9 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
         //           << " Channels: " << mask_image.channels()
         //           << " Depth: " << mask_image.depth()
         //           << std::endl;
-
-        extract_by_mask(input_pc, mask_image, objects_clouds);
+        PointCloudProjection cloud_on_image;
+        project2image_plane(input_pc, cloud_on_image);
+        extract_by_mask(input_pc, mask_image, objects_clouds, cloud_on_image);
     }
 
     // visualization
@@ -246,6 +262,8 @@ void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
     // Line strip is blue
     line_strip.color.b = 1.0;
     line_strip.color.g = 1.0;
+
+    line_strip.color.a = 1.0;
 
     // Create the vertices for the points and lines
     for (uint32_t i = 0; i < polygon->points.size(); ++i)

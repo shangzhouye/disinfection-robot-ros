@@ -1,5 +1,8 @@
 std_msgs/Header header
 
+# Original color image
+sensor_msgs/Image color_image
+
 # Bounding boxes in pixels
 sensor_msgs/RegionOfInterest[] boxes
 

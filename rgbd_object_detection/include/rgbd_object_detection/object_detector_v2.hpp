@@ -33,12 +33,19 @@
 #include <rgbd_object_detection/camera_utils.hpp>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <memory>
 
 namespace disinfection_robot
 {
 
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
+
+struct PointCloudProjection
+{
+    std::vector<Eigen::Matrix<int, 2, 1>> points_2d;
+    std::vector<double> depth; // depth of each corresponding point
+};
 
 class ObjectDetectorV2
 {
@@ -85,8 +92,12 @@ public:
     *  \param input_pc - input pointcloud from lidar
     *  \param mask - a const reference of the mask (object region has value of 255)
     *  \param object_pc_list - an array of all the pointclouds of objects
+    *  \param cloud_2d - projected cloud on 2d image plane
     */
-    void extract_by_mask(PointCloud::Ptr input_pc, const cv::Mat &mask, std::vector<PointCloud::Ptr> &object_pc_list);
+    void extract_by_mask(PointCloud::Ptr input_pc,
+                         const cv::Mat &mask,
+                         std::vector<PointCloud::Ptr> &object_pc_list,
+                         const PointCloudProjection &cloud_2d);
 
     /*! \brief cluster the segmented object point cloud
     *
@@ -114,6 +125,13 @@ public:
     */
     void polygon_marker(PointCloud::Ptr polygon,
                         visualization_msgs::MarkerArray &marker_array);
+
+    /*! \brief project the point cloud onto image plane using extrinsics
+    *
+    *  \param in_cloud - input pointcloud
+    *  \param out_cloud_2d - projected point cloud
+    */
+    void project2image_plane(PointCloud::Ptr in_cloud, PointCloudProjection &out_cloud_2d);
 };
 
 } // namespace disinfection_robot

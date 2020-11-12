@@ -65,12 +65,13 @@ class MaskRCNN:
         self.interested_ids_ = [13, 56, 57, 60]
 
 
-    def publish_result(self, img_header, predictions):
+    def publish_result(self, img_header, predictions, color_image):
         ''' Publish the result from maskrcnn onto the topic
 
         Args:
             img_header: header from the image messgage
             predictions: prediction output from detectron2 model
+            color_image: the original color image
         '''
 
         boxes = predictions.pred_boxes if predictions.has("pred_boxes") else None
@@ -82,6 +83,7 @@ class MaskRCNN:
 
         result_msg = MaskrcnnResult()
         result_msg.header = img_header
+        result_msg.color_image = self.bridge_.cv2_to_imgmsg(color_image, "bgr8")
 
         for i in range(predictions.pred_classes.size()[0]):
 
@@ -134,7 +136,7 @@ class MaskRCNN:
         # print("Classes list: ", outputs["instances"].pred_classes)
         # print("Bounding boxes", outputs["instances"].pred_boxes)
 
-        publish_msg = self.publish_result(data.header, outputs_cpu)
+        publish_msg = self.publish_result(data.header, outputs_cpu, cv_image)
         self.result_bbox_pub_.publish(publish_msg)
 
         # visualize results
