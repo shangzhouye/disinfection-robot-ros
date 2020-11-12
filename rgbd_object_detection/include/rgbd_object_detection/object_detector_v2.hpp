@@ -10,6 +10,7 @@
 
 #include "ros/ros.h"
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/Image.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
 #include <message_filters/subscriber.h>
@@ -69,6 +70,11 @@ public:
 
     double ground_plane_height_ = -0.35; // ground plane z axis value
 
+    // define colormap for overlap image and pointcloud
+    cv::Mat colormap_;
+
+    ros::Publisher overlap_image_pub_;
+
 public:
     ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 1),
                                             result_sub_(nh, "maskrcnn/bbox", 1),
@@ -85,6 +91,15 @@ public:
         sync_.registerCallback(boost::bind(&ObjectDetectorV2::mask_callback, this, _1, _2));
 
         convex_hull_pub_ = nh.advertise<visualization_msgs::MarkerArray>("object_convex_hull", 100);
+
+        cv::Mat grayscale(256, 1, CV_8UC1);
+        for (int i = 0; i < 256; i++)
+        {
+            grayscale.at<uchar>(i) = i;
+        }
+        cv::applyColorMap(grayscale, colormap_, cv::COLORMAP_JET);
+
+        overlap_image_pub_ = nh.advertise<sensor_msgs::Image>("overlap_image", 10);
     }
 
     /*! \brief extract the depth image by mask
@@ -105,7 +120,7 @@ public:
     */
     void find_largest_cluster(PointCloud::Ptr object_cloud,
                               double cluster_tolerance = 0.2,
-                              int min_cluster_size = 50,
+                              int min_cluster_size = 100,
                               int max_cluster_size = 307200);
 
     /*! \brief find the projected 2D convex hull of  the object

@@ -45,6 +45,7 @@ void ObjectDetectorV2::extract_by_mask(PointCloud::Ptr input_pc,
     for (size_t i = 0; i < input_pc->points.size(); i++)
     {
         // if it is not inside image, continue
+        // points_2d[i][0] is in the width direction
         if (cloud_2d.points_2d[i][0] < 0 || cloud_2d.points_2d[i][0] > my_camera_.image_width_ ||
             cloud_2d.points_2d[i][1] < 0 || cloud_2d.points_2d[i][1] > my_camera_.image_height_)
         {
@@ -95,22 +96,27 @@ void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
     // ROS_INFO("Found %ld objects, max size: %ld",
     //          object_indices.size(), max_size);
 
+    PointCloud::Ptr new_cloud(new PointCloud());
+
     if (max_size == 0)
     {
-        ROS_INFO("No cluster found.");
+        // ROS_INFO("No cluster found.");
+        new_cloud->swap(*object_cloud);
+
         return;
     }
 
     // Reify indices into a point cloud of the object.
     pcl::PointIndices::Ptr indices(new pcl::PointIndices);
     *indices = object_indices[max_cluster_id];
-    PointCloud::Ptr new_cloud(new PointCloud());
     pcl::ExtractIndices<PointT> extract;
     extract.setInputCloud(object_cloud);
     extract.setIndices(indices);
     extract.filter(*new_cloud);
 
     new_cloud->swap(*object_cloud);
+
+    return;
 }
 
 void ObjectDetectorV2::project2image_plane(PointCloud::Ptr in_cloud, PointCloudProjection &out_cloud_2d)
@@ -128,94 +134,6 @@ void ObjectDetectorV2::project2image_plane(PointCloud::Ptr in_cloud, PointCloudP
     }
 
     return;
-}
-
-void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc,
-                                     const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result)
-{
-    // std::cout << "Inside callback" << std::endl;
-
-    PointCloud::Ptr input_pc(new PointCloud);
-    pcl::fromROSMsg(*raw_pc, *input_pc);
-
-    // create an array of all the objects pointcloud
-    std::vector<PointCloud::Ptr> objects_clouds;
-
-    // read masks
-    cv_bridge::CvImageConstPtr cv_ptr_mask;
-
-    PointCloudProjection cloud_on_image;
-    project2image_plane(input_pc, cloud_on_image);
-
-    for (int i = 0; i < mask_result->class_ids.size(); i++)
-    {
-        try
-        {
-            // learned: this overload is convenient when you have a pointer to some other message type
-            // that contains a sensor_msgs/Image you want to convert.
-            cv_ptr_mask = cv_bridge::toCvShare(mask_result->masks[i], mask_result);
-        }
-        catch (cv_bridge::Exception &e)
-        {
-            ROS_ERROR("cv_bridge exception: %s", e.what());
-            return;
-        }
-
-        cv::Mat mask_image = cv_ptr_mask->image;
-
-        // std::cout << "Mask Rows: " << mask_image.rows << " Cols: " << mask_image.cols << std::endl;
-        // std::cout << "Row length: " << mask_image.step
-        //           << " Channels: " << mask_image.channels()
-        //           << " Depth: " << mask_image.depth()
-        //           << std::endl;
-
-        extract_by_mask(input_pc, mask_image, objects_clouds, cloud_on_image);
-    }
-
-    // visualization
-    PointCloud::Ptr objects_visual(new PointCloud);
-    for (int i = 0; i < objects_clouds.size(); i++)
-    {
-        *objects_visual += *(objects_clouds[i]);
-    }
-    sensor_msgs::PointCloud2 objects_visual_msg;
-    pcl::toROSMsg(*objects_visual, objects_visual_msg);
-
-    objects_visual_msg.header.stamp = ros::Time::now();
-    objects_visual_msg.header.frame_id = "velodyne";
-    objects_pub_.publish(objects_visual_msg);
-
-    visualization_msgs::MarkerArray polygon_array;
-
-    // for each object cloud, do downsampling and clustering
-    for (auto each_object : objects_clouds)
-    {
-        voxel_filter(each_object, 0.01);
-        find_largest_cluster(each_object);
-
-        // if there is no clusters, ignore this object
-        if (each_object->points.size() <= 2)
-        {
-            continue;
-        }
-        PointCloud::Ptr convex_hull_cloud = find_2D_convex_hull(each_object);
-        polygon_marker(convex_hull_cloud, polygon_array);
-    }
-
-    // visualize again after clustering
-    PointCloud::Ptr clustered_visual(new PointCloud);
-    for (int i = 0; i < objects_clouds.size(); i++)
-    {
-        *clustered_visual += *(objects_clouds[i]);
-    }
-    sensor_msgs::PointCloud2 clustered_visual_msg;
-    pcl::toROSMsg(*clustered_visual, clustered_visual_msg);
-
-    clustered_visual_msg.header.stamp = ros::Time::now();
-    clustered_visual_msg.header.frame_id = "velodyne";
-    clustered_pub_.publish(clustered_visual_msg);
-
-    convex_hull_pub_.publish(polygon_array);
 }
 
 PointCloud::Ptr ObjectDetectorV2::find_2D_convex_hull(PointCloud::Ptr in_cloud)
@@ -324,6 +242,100 @@ void ObjectDetectorV2::pcl_image_overlap(const PointCloudProjection &projected_c
         cv::circle(image, cvPoint(projected_cloud.points_2d[i][0], projected_cloud.points_2d[i][1]),
                    2, CV_RGB(r, g, b), -1);
     }
+}
+
+void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc,
+                                     const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result)
+{
+    // std::cout << "Inside callback" << std::endl;
+
+    PointCloud::Ptr input_pc(new PointCloud);
+    pcl::fromROSMsg(*raw_pc, *input_pc);
+
+    // create an array of all the objects pointcloud
+    std::vector<PointCloud::Ptr> objects_clouds;
+
+    // read masks
+    cv_bridge::CvImageConstPtr cv_ptr_mask;
+
+    PointCloudProjection cloud_on_image;
+    project2image_plane(input_pc, cloud_on_image);
+
+    // visualize overlap image
+    cv_bridge::CvImagePtr cv_ptr_color;
+    cv_ptr_color = cv_bridge::toCvCopy(mask_result->color_image);
+    pcl_image_overlap(cloud_on_image, cv_ptr_color->image, colormap_);
+    overlap_image_pub_.publish(cv_ptr_color->toImageMsg());
+
+    for (int i = 0; i < mask_result->class_ids.size(); i++)
+    {
+        try
+        {
+            // learned: this overload is convenient when you have a pointer to some other message type
+            // that contains a sensor_msgs/Image you want to convert.
+            cv_ptr_mask = cv_bridge::toCvShare(mask_result->masks[i], mask_result);
+        }
+        catch (cv_bridge::Exception &e)
+        {
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            return;
+        }
+
+        cv::Mat mask_image = cv_ptr_mask->image;
+
+        // std::cout << "Mask Rows: " << mask_image.rows << " Cols: " << mask_image.cols << std::endl;
+        // std::cout << "Row length: " << mask_image.step
+        //           << " Channels: " << mask_image.channels()
+        //           << " Depth: " << mask_image.depth()
+        //           << std::endl;
+
+        extract_by_mask(input_pc, mask_image, objects_clouds, cloud_on_image);
+    }
+
+    // visualization
+    PointCloud::Ptr objects_visual(new PointCloud);
+    for (int i = 0; i < objects_clouds.size(); i++)
+    {
+        *objects_visual += *(objects_clouds[i]);
+    }
+    sensor_msgs::PointCloud2 objects_visual_msg;
+    pcl::toROSMsg(*objects_visual, objects_visual_msg);
+
+    objects_visual_msg.header.stamp = ros::Time::now();
+    objects_visual_msg.header.frame_id = "velodyne";
+    objects_pub_.publish(objects_visual_msg);
+
+    visualization_msgs::MarkerArray polygon_array;
+
+    // for each object cloud, do downsampling and clustering
+    for (auto each_object : objects_clouds)
+    {
+        voxel_filter(each_object, 0.01);
+        find_largest_cluster(each_object);
+
+        // if there is no clusters, ignore this object
+        if (each_object->points.size() <= 2)
+        {
+            continue;
+        }
+        PointCloud::Ptr convex_hull_cloud = find_2D_convex_hull(each_object);
+        polygon_marker(convex_hull_cloud, polygon_array);
+    }
+
+    // visualize again after clustering
+    PointCloud::Ptr clustered_visual(new PointCloud);
+    for (int i = 0; i < objects_clouds.size(); i++)
+    {
+        *clustered_visual += *(objects_clouds[i]);
+    }
+    sensor_msgs::PointCloud2 clustered_visual_msg;
+    pcl::toROSMsg(*clustered_visual, clustered_visual_msg);
+
+    clustered_visual_msg.header.stamp = ros::Time::now();
+    clustered_visual_msg.header.frame_id = "velodyne";
+    clustered_pub_.publish(clustered_visual_msg);
+
+    convex_hull_pub_.publish(polygon_array);
 }
 
 } // namespace disinfection_robot
