@@ -47,6 +47,9 @@ public:
 
     Eigen::Matrix4d Tco2l_; // extrinsic, from camera optical to lidar frame transformation
 
+    int image_height_ = 480;
+    int image_width_ = 640;
+
     Camera();
 
     /*! \brief construct camera object with instrinsics
@@ -57,6 +60,9 @@ public:
         nh.getParam("/color_cy", color_cy_);
         nh.getParam("/color_fx", color_fx_);
         nh.getParam("/color_fy", color_fy_);
+
+        nh.getParam("/image_height", image_height_);
+        nh.getParam("/image_width", image_width_);
 
         std::vector<double> rpy_lc;
         std::vector<double> t_lc;

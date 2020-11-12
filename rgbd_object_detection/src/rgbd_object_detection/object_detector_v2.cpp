@@ -1,5 +1,5 @@
 /// \file
-/// \brief The class for detecting object poses from masks and pointcloud (using depth image)
+/// \brief The class for detecting object poses from masks and pointcloud (using Velodyne lidar)
 ///
 
 #include "ros/ros.h"
@@ -12,7 +12,7 @@
 #include <message_filters/sync_policies/exact_time.h>
 #include <sensor_msgs/Image.h>
 #include <rgbd_object_detection/MaskrcnnResult.h>
-#include <rgbd_object_detection/object_detector.hpp>
+#include <rgbd_object_detection/object_detector_v2.hpp>
 #include <rgbd_object_detection/pc_utils.hpp>
 #include <iostream>
 #include <std_msgs/Header.h>
@@ -31,48 +31,41 @@ namespace disinfection_robot
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
-void ObjectDetector::extract_by_mask(const cv::Mat &depth, const cv::Mat &mask, std::vector<PointCloud::Ptr> &object_pc_list)
+void ObjectDetectorV2::extract_by_mask(PointCloud::Ptr input_pc, const cv::Mat &mask, std::vector<PointCloud::Ptr> &object_pc_list)
 {
     PointCloud::Ptr current_cloud(new PointCloud);
-    for (int v = 0; v < mask.rows; v++)
+
+    // traverse the pointcloud (todo: optimize this process)
+    for (size_t i = 0; i < input_pc->points.size(); i++)
     {
-        for (int u = 0; u < mask.cols; u++)
+        Eigen::Matrix<double, 3, 1> p_l(input_pc->points[i].x,
+                                        input_pc->points[i].y,
+                                        input_pc->points[i].z);
+        Eigen::Matrix<int, 2, 1> p_s = my_camera_.lidar2pixel(p_l); // point position in sensor coordinate
+
+        // if it is not inside image, continue
+        if (p_s[0] < 0 || p_s[0] > my_camera_.image_height_ ||
+            p_s[1] < 0 || p_s[1] > my_camera_.image_width_)
         {
-            // if it is not in the mask, ignore this pixel
-            if (mask.ptr<unsigned char>(v)[u] != 255)
-            {
-                continue;
-            }
-
-            unsigned int d = depth.ptr<unsigned short>(v)[u];
-            if (d == 0)
-            {
-                continue;
-            }
-
-            PointT p;
-            Eigen::Matrix<float, 3, 1> p_l =
-                my_camera_.depth2camera(Eigen::Matrix<int, 2, 1>(u, v), d);
-
-            p.z = p_l[2];
-            p.x = p_l[0];
-            p.y = p_l[1];
-
-            p.z /= 1000.0;
-            p.x /= 1000.0;
-            p.y /= 1000.0;
-
-            current_cloud->points.push_back(p);
+            continue;
         }
+
+        // if this point is not inside mask, continue
+        if (mask.ptr<unsigned char>(p_s[1])[p_s[0]] != 255)
+        {
+            continue;
+        }
+
+        current_cloud->points.push_back(input_pc->points[i]);
     }
 
     object_pc_list.push_back(current_cloud);
 }
 
-void ObjectDetector::find_largest_cluster(PointCloud::Ptr object_cloud,
-                                          double cluster_tolerance,
-                                          int min_cluster_size,
-                                          int max_cluster_size)
+void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
+                                            double cluster_tolerance,
+                                            int min_cluster_size,
+                                            int max_cluster_size)
 {
 
     std::vector<pcl::PointIndices> object_indices;
@@ -119,33 +112,13 @@ void ObjectDetector::find_largest_cluster(PointCloud::Ptr object_cloud,
     new_cloud->swap(*object_cloud);
 }
 
-void ObjectDetector::mask_callback(const sensor_msgs::ImageConstPtr &depth,
-                                   const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result)
+void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc,
+                                     const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result)
 {
     // std::cout << "Inside callback" << std::endl;
-    // std::cout << depth->header.stamp << std::endl;
-    // std::cout << mask_result->header.stamp << std::endl;
 
-    // read depth image
-    cv_bridge::CvImageConstPtr cv_ptr_depth;
-    try
-    {
-        // learned: use toCvShare without format conversion to avoid copy
-        cv_ptr_depth = cv_bridge::toCvShare(depth);
-    }
-    catch (cv_bridge::Exception &e)
-    {
-        ROS_ERROR("cv_bridge exception: %s", e.what());
-        return;
-    }
-
-    cv::Mat depth_image = cv_ptr_depth->image;
-
-    // std::cout << "Depth Rows: " << depth_image.rows << " Cols: " << depth_image.cols << std::endl;
-    // std::cout << "Row length: " << depth_image.step
-    //           << " Channels: " << depth_image.channels()
-    //           << " Depth: " << depth_image.depth()
-    //           << std::endl;
+    PointCloud::Ptr input_pc(new PointCloud);
+    pcl::fromROSMsg(*raw_pc, *input_pc);
 
     // create an array of all the objects pointcloud
     std::vector<PointCloud::Ptr> objects_clouds;
@@ -175,7 +148,7 @@ void ObjectDetector::mask_callback(const sensor_msgs::ImageConstPtr &depth,
         //           << " Depth: " << mask_image.depth()
         //           << std::endl;
 
-        extract_by_mask(depth_image, mask_image, objects_clouds);
+        extract_by_mask(input_pc, mask_image, objects_clouds);
     }
 
     // visualization
@@ -188,13 +161,13 @@ void ObjectDetector::mask_callback(const sensor_msgs::ImageConstPtr &depth,
     pcl::toROSMsg(*objects_visual, objects_visual_msg);
 
     objects_visual_msg.header.stamp = ros::Time::now();
-    objects_visual_msg.header.frame_id = "camera_color_optical_frame";
+    objects_visual_msg.header.frame_id = "velodyne";
     objects_pub_.publish(objects_visual_msg);
 
     // for each object cloud, do downsampling and clustering
     for (auto each_object : objects_clouds)
     {
-        voxel_filter(each_object, 0.02);
+        voxel_filter(each_object, 0.01);
         find_largest_cluster(each_object);
     }
 
@@ -208,7 +181,7 @@ void ObjectDetector::mask_callback(const sensor_msgs::ImageConstPtr &depth,
     pcl::toROSMsg(*clustered_visual, clustered_visual_msg);
 
     clustered_visual_msg.header.stamp = ros::Time::now();
-    clustered_visual_msg.header.frame_id = "camera_color_optical_frame";
+    clustered_visual_msg.header.frame_id = "velodyne";
     clustered_pub_.publish(clustered_visual_msg);
 }
 

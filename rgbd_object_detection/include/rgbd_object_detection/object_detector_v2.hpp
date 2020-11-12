@@ -1,7 +1,7 @@
-#ifndef OBJECT_DETECTOR_INCLUDE_GUARD_HPP
-#define OBJECT_DETECTOR_INCLUDE_GUARD_HPP
+#ifndef OBJECT_DETECTOR_V2_INCLUDE_GUARD_HPP
+#define OBJECT_DETECTOR_V2_INCLUDE_GUARD_HPP
 /// \file
-/// \brief The class for detecting object poses from masks and pointcloud (using depth image)
+/// \brief The class for detecting object poses from masks and pointcloud (using Velodyne lidar)
 ///
 /// PARAMETERS:
 ///     Clustering parameters - cluster_tolerance, min_cluster_size, max_cluster_size
@@ -15,6 +15,7 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/Image.h>
 #include <rgbd_object_detection/MaskrcnnResult.h>
 #include <iostream>
@@ -36,26 +37,26 @@ namespace disinfection_robot
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
-class ObjectDetector
+class ObjectDetectorV2
 {
 
 public:
     ros::Publisher objects_pub_;
     ros::Publisher clustered_pub_;
 
-    message_filters::Subscriber<sensor_msgs::Image> depth_sub_;
+    message_filters::Subscriber<sensor_msgs::PointCloud2> raw_pc_sub_;
     message_filters::Subscriber<rgbd_object_detection::MaskrcnnResult> result_sub_;
 
-    typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, rgbd_object_detection::MaskrcnnResult> MySyncPolicy;
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, rgbd_object_detection::MaskrcnnResult> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> sync_;
 
     Camera my_camera_;
 
 public:
-    ObjectDetector(ros::NodeHandle &nh) : depth_sub_(nh, "camera/aligned_depth_to_color/image_raw", 1),
-                                          result_sub_(nh, "maskrcnn/bbox", 1),
-                                          sync_(MySyncPolicy(10), depth_sub_, result_sub_),
-                                          my_camera_(nh)
+    ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 1),
+                                            result_sub_(nh, "maskrcnn/bbox", 1),
+                                            sync_(MySyncPolicy(10), raw_pc_sub_, result_sub_),
+                                            my_camera_(nh)
     {
 
         objects_pub_ = nh.advertise<sensor_msgs::PointCloud2>("objects_clouds", 10);
@@ -64,27 +65,27 @@ public:
         // message_filters::TimeSynchronizer<sensor_msgs::Image, rgbd_object_detection::MaskrcnnResult> sync(depth_sub_, result_sub_, 10);
 
         // since realsense camera has syncronized the time stamp, use ExactTime config here
-        sync_.registerCallback(boost::bind(&ObjectDetector::mask_callback, this, _1, _2));
+        sync_.registerCallback(boost::bind(&ObjectDetectorV2::mask_callback, this, _1, _2));
     }
 
     /*! \brief extract the depth image by mask
     *
-    *  \param depth - a const reference of the depth image
+    *  \param input_pc - input pointcloud from lidar
     *  \param mask - a const reference of the mask (object region has value of 255)
     *  \param object_pc_list - an array of all the pointclouds of objects
     */
-    void extract_by_mask(const cv::Mat &depth, const cv::Mat &mask, std::vector<PointCloud::Ptr> &object_pc_list);
+    void extract_by_mask(PointCloud::Ptr input_pc, const cv::Mat &mask, std::vector<PointCloud::Ptr> &object_pc_list);
 
     /*! \brief cluster the segmented object point cloud
     *
     *  \param object_cloud - segmented object point cloud; this pointcloud will be modified
     */
     void find_largest_cluster(PointCloud::Ptr object_cloud,
-                              double cluster_tolerance = 0.05,
+                              double cluster_tolerance = 0.2,
                               int min_cluster_size = 50,
                               int max_cluster_size = 307200);
 
-    void mask_callback(const sensor_msgs::ImageConstPtr &depth,
+    void mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc, // Learned: it has to be const pointer
                        const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result);
 };
 
