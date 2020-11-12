@@ -6,6 +6,7 @@
 /// PARAMETERS:
 ///     Clustering parameters - cluster_tolerance, min_cluster_size, max_cluster_size
 ///     Dowsampling voxel filter - resolution
+///     Loop rate of this detection system - loop_rate_
 
 #include "ros/ros.h"
 #include <sensor_msgs/PointCloud2.h>
@@ -30,6 +31,8 @@
 #include "pcl/filters/extract_indices.h"
 #include <pcl/filters/voxel_grid.h>
 #include <rgbd_object_detection/camera_utils.hpp>
+#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/Marker.h>
 
 namespace disinfection_robot
 {
@@ -52,6 +55,13 @@ public:
 
     Camera my_camera_;
 
+    int marker_id_ = 0;
+    double loop_rate_ = 6.0; // approximately running at 6Hz, delete marker at this rate
+
+    ros::Publisher convex_hull_pub_;
+
+    double ground_plane_height_ = -0.35; // ground plane z axis value
+
 public:
     ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 1),
                                             result_sub_(nh, "maskrcnn/bbox", 1),
@@ -66,6 +76,8 @@ public:
 
         // since realsense camera has syncronized the time stamp, use ExactTime config here
         sync_.registerCallback(boost::bind(&ObjectDetectorV2::mask_callback, this, _1, _2));
+
+        convex_hull_pub_ = nh.advertise<visualization_msgs::MarkerArray>("object_convex_hull", 100);
     }
 
     /*! \brief extract the depth image by mask
@@ -85,8 +97,23 @@ public:
                               int min_cluster_size = 50,
                               int max_cluster_size = 307200);
 
+    /*! \brief find the projected 2D convex hull of  the object
+    *
+    *  \param in_cloud - pointcloud of an object
+    *  \return convex hull vertices
+    */
+    PointCloud::Ptr find_2D_convex_hull(PointCloud::Ptr in_cloud);
+
     void mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc, // Learned: it has to be const pointer
                        const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result);
+
+    /*! \brief Publish the polygon given by the convex hull
+    *
+    *  \param polygon - indices points of a convex hull
+    *  \param marker_array - return line strip markers
+    */
+    void polygon_marker(PointCloud::Ptr polygon,
+                        visualization_msgs::MarkerArray &marker_array);
 };
 
 } // namespace disinfection_robot

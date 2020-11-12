@@ -24,6 +24,9 @@
 #include <vector>
 #include <pcl/segmentation/extract_clusters.h>
 #include "pcl/filters/extract_indices.h"
+#include <pcl/surface/concave_hull.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/Marker.h>
 
 namespace disinfection_robot
 {
@@ -164,11 +167,21 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
     objects_visual_msg.header.frame_id = "velodyne";
     objects_pub_.publish(objects_visual_msg);
 
+    visualization_msgs::MarkerArray polygon_array;
+
     // for each object cloud, do downsampling and clustering
     for (auto each_object : objects_clouds)
     {
         voxel_filter(each_object, 0.01);
         find_largest_cluster(each_object);
+
+        // if there is no clusters, ignore this object
+        if (each_object->points.size() <= 2)
+        {
+            continue;
+        }
+        PointCloud::Ptr convex_hull_cloud = find_2D_convex_hull(each_object);
+        polygon_marker(convex_hull_cloud, polygon_array);
     }
 
     // visualize again after clustering
@@ -183,6 +196,78 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
     clustered_visual_msg.header.stamp = ros::Time::now();
     clustered_visual_msg.header.frame_id = "velodyne";
     clustered_pub_.publish(clustered_visual_msg);
+
+    convex_hull_pub_.publish(polygon_array);
+}
+
+PointCloud::Ptr ObjectDetectorV2::find_2D_convex_hull(PointCloud::Ptr in_cloud)
+{
+
+    PointCloud::Ptr cloud_2d(new PointCloud);
+
+    for (size_t i = 0; i < in_cloud->points.size(); ++i)
+    {
+        PointT p;
+        p.x = in_cloud->points[i].x;
+        p.y = in_cloud->points[i].y;
+        p.z = 0;
+
+        cloud_2d->points.push_back(p);
+    }
+
+    PointCloud::Ptr convex_hull(new PointCloud);
+    pcl::ConvexHull<pcl::PointXYZ> chull;
+    chull.setInputCloud(cloud_2d);
+    chull.reconstruct(*convex_hull);
+
+    // std::cout << "Convex hull has: " << convex_hull->size()
+    //           << " data points." << std::endl;
+
+    return convex_hull;
+}
+
+void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
+                                      visualization_msgs::MarkerArray &marker_array)
+{
+    visualization_msgs::Marker line_strip;
+    line_strip.header.frame_id = "velodyne";
+    line_strip.header.stamp = ros::Time::now();
+    line_strip.ns = "lines";
+    line_strip.action = visualization_msgs::Marker::ADD;
+    line_strip.pose.orientation.w = 1.0;
+
+    line_strip.id = marker_id_;
+
+    line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+
+    // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+    line_strip.scale.x = 0.05;
+
+    // Line strip is blue
+    line_strip.color.b = 1.0;
+    line_strip.color.g = 1.0;
+
+    // Create the vertices for the points and lines
+    for (uint32_t i = 0; i < polygon->points.size(); ++i)
+    {
+        geometry_msgs::Point p;
+        p.x = polygon->points[i].x;
+        p.y = polygon->points[i].y;
+        p.z = ground_plane_height_;
+        line_strip.points.push_back(p);
+    }
+
+    geometry_msgs::Point p;
+    p.x = polygon->points[0].x;
+    p.y = polygon->points[0].y;
+    p.z = ground_plane_height_;
+    line_strip.points.push_back(p);
+
+    line_strip.lifetime = ros::Duration(1.0 / loop_rate_);
+
+    marker_array.markers.push_back(line_strip);
+
+    marker_id_++;
 }
 
 } // namespace disinfection_robot
