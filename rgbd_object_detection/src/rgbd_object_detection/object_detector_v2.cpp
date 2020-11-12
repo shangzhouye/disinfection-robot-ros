@@ -45,8 +45,8 @@ void ObjectDetectorV2::extract_by_mask(PointCloud::Ptr input_pc,
     for (size_t i = 0; i < input_pc->points.size(); i++)
     {
         // if it is not inside image, continue
-        if (cloud_2d.points_2d[i][0] < 0 || cloud_2d.points_2d[i][0] > my_camera_.image_height_ ||
-            cloud_2d.points_2d[i][1] < 0 || cloud_2d.points_2d[i][1] > my_camera_.image_width_)
+        if (cloud_2d.points_2d[i][0] < 0 || cloud_2d.points_2d[i][0] > my_camera_.image_width_ ||
+            cloud_2d.points_2d[i][1] < 0 || cloud_2d.points_2d[i][1] > my_camera_.image_height_)
         {
             continue;
         }
@@ -144,6 +144,9 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
     // read masks
     cv_bridge::CvImageConstPtr cv_ptr_mask;
 
+    PointCloudProjection cloud_on_image;
+    project2image_plane(input_pc, cloud_on_image);
+
     for (int i = 0; i < mask_result->class_ids.size(); i++)
     {
         try
@@ -165,8 +168,7 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
         //           << " Channels: " << mask_image.channels()
         //           << " Depth: " << mask_image.depth()
         //           << std::endl;
-        PointCloudProjection cloud_on_image;
-        project2image_plane(input_pc, cloud_on_image);
+
         extract_by_mask(input_pc, mask_image, objects_clouds, cloud_on_image);
     }
 
@@ -286,6 +288,42 @@ void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
     marker_array.markers.push_back(line_strip);
 
     marker_id_++;
+}
+
+void ObjectDetectorV2::pcl_image_overlap(const PointCloudProjection &projected_cloud,
+                                         cv::Mat &image,
+                                         cv::Mat colormap)
+{
+    int w = image.size().width;
+    int h = image.size().height;
+
+    float min_d, max_d;
+    min_d = max_d = projected_cloud.depth[0];
+    for (int i = 1; i < projected_cloud.depth.size(); i++)
+    {
+        float di = projected_cloud.depth[i];
+        max_d = di > max_d ? di : max_d;
+        min_d = di < min_d ? di : min_d;
+    }
+    float wid_d = max_d - min_d;
+
+    for (int i = 0; i < projected_cloud.points_2d.size(); i++)
+    {
+        if (projected_cloud.points_2d[i][0] <= 0 && projected_cloud.points_2d[i][0] >= w &&
+            projected_cloud.points_2d[i][1] <= 0 && projected_cloud.points_2d[i][1] >= h)
+        {
+            continue;
+        }
+        float distance = projected_cloud.depth[i];
+
+        int colorid = wid_d ? ((distance - min_d) * 255 / wid_d) : 128;
+        cv::Vec3b color = colormap.at<cv::Vec3b>(colorid);
+        int r = color[0];
+        int g = color[1];
+        int b = color[2];
+        cv::circle(image, cvPoint(projected_cloud.points_2d[i][0], projected_cloud.points_2d[i][1]),
+                   2, CV_RGB(r, g, b), -1);
+    }
 }
 
 } // namespace disinfection_robot

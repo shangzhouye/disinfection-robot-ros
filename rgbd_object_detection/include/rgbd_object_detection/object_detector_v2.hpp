@@ -132,6 +132,17 @@ public:
     *  \param out_cloud_2d - projected point cloud
     */
     void project2image_plane(PointCloud::Ptr in_cloud, PointCloudProjection &out_cloud_2d);
+
+    /*! \brief Overlap a projected pointcloud onto image plane
+    *           the intensity of input projected point cloud denotes its depth in the original pointcloud
+    * 
+    *  \param projected_cloud - the projected point cloud
+    *  \param image - the image to be overlaped (image will be modified)
+    *  \param colormap - the defined colormap
+    */
+    void pcl_image_overlap(const PointCloudProjection &projected_cloud,
+                           cv::Mat &image,
+                           cv::Mat colormap);
 };
 
 } // namespace disinfection_robot
