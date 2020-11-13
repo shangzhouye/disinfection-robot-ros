@@ -1,0 +1,9 @@
+[submodule "hdl_people_tracking"]
+	path = hdl_people_tracking
+	url = https://github.com/shangzhouye/hdl_people_tracking.git
+[submodule "ndt_omp"]
+	path = ndt_omp
+	url = https://github.com/koide3/ndt_omp.git
+[submodule "hdl_localization"]
+	path = hdl_localization
+	url = https://github.com/koide3/hdl_localization.git

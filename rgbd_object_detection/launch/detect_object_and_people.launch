@@ -1,0 +1,48 @@
+<launch>
+<!-- Use use_sim_time = true if running a rosbag -->
+
+    <rosparam command="load" file="$(find rgbd_object_detection)/config/realsense.yaml" />
+
+    <node name="rviz" pkg="rviz" type="rviz"  args="-d $(find rgbd_object_detection)/rviz/detect_object_and_people.rviz"/>
+    
+    <!-- Object detection -->
+    <node name="run_object_detection" pkg="rgbd_object_detection" type="run_object_detection" output="screen"/>
+
+    <node pkg="tf" type="static_transform_publisher" name="camera2color_optical" args="-0.001 0.015 -0.000 -1.572 -0.002 -1.571 camera_link camera_color_optical_frame 100"/>
+    <node pkg="tf" type="static_transform_publisher" name="camera2depth_optical" args="0.000 0.000 0.000 -1.571 -0.000 -1.571 camera_link camera_depth_optical_frame 100"/>
+
+    <!-- Adjusted extrinsic from lidar to camera_link -->
+    <node pkg="tf" type="static_transform_publisher" name="velodyne2camera" args="-0.15 0 0.95 0 0.349066 0 velodyne camera_link 100"/>
+
+    <!-- People detection and tracking -->
+    <!-- arguments -->
+    <arg name="nodelet_manager" default="velodyne_nodelet_manager" />
+    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen"/>
+
+    <node pkg="nodelet" type="nodelet" name="hdl_people_detection_nodelet" args="load hdl_people_tracking/HdlPeopleDetectionNodelet $(arg nodelet_manager)">
+        <param name="static_sensor" value="true"/>
+        <param name="downsample_resolution" value="0.05"/>
+        <!-- back subtraction params -->
+        <param name="backsub_resolution" value="0.2"/>
+        <param name="backsub_occupancy_thresh" value="2"/>
+        <!-- clustering params -->
+        <param name="cluster_min_pts" value="25"/>
+        <param name="cluster_max_pts" value="2048"/>
+        <param name="cluster_min_size_x" value="0.2"/>
+        <param name="cluster_min_size_y" value="0.2"/>
+        <param name="cluster_min_size_z" value="0.2"/>
+        <param name="cluster_max_size_x" value="1.5"/>
+        <param name="cluster_max_size_y" value="1.5"/>
+        <param name="cluster_max_size_z" value="2.0"/>
+        <!-- classification params -->
+        <param name="enable_classification" value="false"/>
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="hdl_people_tracking_nodelet" args="load hdl_people_tracking/HdlPeopleTrackingNodelet $(arg nodelet_manager)">
+        <!-- tracks with larger covariance matrix trace than this value will be removed -->
+        <param name="remove_trace_thresh" value="1.0"/>
+        <param name="human_radius" value="0.4"/>
+    </node>
+
+
+</launch>
