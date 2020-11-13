@@ -100,14 +100,8 @@ Visualization Manager:
         All Enabled: false
         base_link:
           Value: false
-        camera_aligned_depth_to_color_frame:
-          Value: true
-        camera_color_frame:
-          Value: true
         camera_color_optical_frame:
           Value: false
-        camera_depth_frame:
-          Value: true
         camera_depth_optical_frame:
           Value: false
         camera_link:
@@ -174,13 +168,7 @@ Visualization Manager:
                 {}
         velodyne:
           camera_link:
-            camera_aligned_depth_to_color_frame:
-              {}
-            camera_color_frame:
-              {}
             camera_color_optical_frame:
-              {}
-            camera_depth_frame:
               {}
             camera_depth_optical_frame:
               {}
@@ -372,9 +360,15 @@ Visualization Manager:
       Name: MarkerArray
       Namespaces:
         boxes: true
-        text28: true
-        text31: true
-        text32: true
+        text0: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /object_map
+      Name: MarkerArray
+      Namespaces:
+        object_map: true
       Queue Size: 100
       Value: true
   Enabled: true

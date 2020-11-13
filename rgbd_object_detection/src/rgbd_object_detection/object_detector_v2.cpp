@@ -181,7 +181,6 @@ void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
 
     // Line strip is blue
     line_strip.color.b = 1.0;
-    line_strip.color.g = 1.0;
 
     line_strip.color.a = 1.0;
 
