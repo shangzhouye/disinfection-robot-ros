@@ -1,0 +1,9 @@
+<launch>
+
+  <node pkg="slam_toolbox" type="sync_slam_toolbox_node" name="slam_toolbox" output="screen">
+    <rosparam command="load" file="$(find jackal-rgbd-navigation)/config/mapper_params_online_sync.yaml" />
+  </node>
+
+  <include file="$(find jackal-rgbd-navigation)/launch/move_base_on_jackal.launch" />
+
+</launch>

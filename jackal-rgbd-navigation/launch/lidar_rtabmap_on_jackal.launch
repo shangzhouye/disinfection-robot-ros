@@ -1,0 +1,82 @@
+<launch>
+    <group ns="rtabmap">
+        <node pkg="rtabmap_ros" type="rtabmap" name="rtabmap" output="screen" args="--delete_db_on_start">
+        <param name="frame_id"                          value="base_link"/>
+        <param name="map_frame_id"                      value="map"/>
+        <param name="odom_frame_id"                     value="odom"/>
+
+        <param name="subscribe_stereo"                  value="false"/>
+        <param name="subscribe_depth"                   value="false"/>
+        <param name="subscribe_rgbd"                    value="false"/>
+        <param name="subscribe_rgb"                     value="false"/>
+        <param name="subscribe_scan_cloud"              value="true"/>
+        <param name="approx_sync"                       value="false"/>
+
+        <remap from="scan_cloud"                        to="/velodyne_points"/>
+
+        <!-- RTAB-Map's parameters -->
+        <param name="Rtabmap/DetectionRate"             value="1"/>
+        <param name="RGBD/NeighborLinkRefining"         value="false"/>
+        <param name="RGBD/ProximityBySpace"             value="true"/>
+        <param name="RGBD/ProximityMaxGraphDepth"       value="0"/>
+        <param name="RGBD/ProximityPathMaxNeighbors"    value="1"/>
+        <param name="RGBD/AngularUpdate"                value="0.05"/>
+        <param name="RGBD/LinearUpdate"                 value="0.05"/>
+        <param name="RGBD/CreateOccupancyGrid"          value="true"/>
+        <param name="Mem/NotLinkedNodesKept"            value="false"/>
+        <param name="Mem/STMSize"                       value="30"/>
+        <!-- param name="Mem/LaserScanVoxelSize"     value="0.1"/ -->
+        <!-- param name="Mem/LaserScanNormalK"       value="10"/ -->
+        <!-- param name="Mem/LaserScanRadius"        value="0"/ -->
+
+        <param name="Reg/Strategy"                      value="1"/>
+        <param name="Reg/Force3DoF"    value="true" />
+
+        <param name="Optimizer/Slam2D" value="true" />
+
+        <param name="Grid/CellSize"                     value="0.1"/>
+        <param name="Grid/RangeMax"                     value="20"/>
+        <param name="Grid/ClusterRadius"                value="1"/>
+        <param name="Grid/GroundIsObstacle"             value="true"/>
+        <param name="Grid/3D"                           value="true"/>
+        <param name="Grid/FromDepth"                    value="false"/>
+        <param name="Grid/RangeMax"                     value="5.0"/>
+        <param name="Grid/RayTracing"                   value="true"/>
+        <!-- remove rings from velodyne on the ground -->
+        <param name="Grid/MinGroundHeight"              value="0.02"/>
+
+        <!-- ICP parameters -->
+        <param name="Icp/VoxelSize"                    value="0.2"/>
+        <param name="Icp/PointToPlaneK"                value="20"/>
+        <param name="Icp/PointToPlaneRadius"           value="0"/>
+        <param name="Icp/PointToPlane"                 value="true"/>
+        <param name="Icp/Iterations"                   value="10"/>
+        <param name="Icp/Epsilon"                      value="0.001"/>
+        <param name="Icp/MaxTranslation"               value="3"/>
+        <param name="Icp/MaxCorrespondenceDistance"    value="1"/>
+        <param name="Icp/PM"                           value="true"/>
+        <param name="Icp/PMOutlierRatio"               value="0.7"/>
+        <param name="Icp/CorrespondenceRatio"          value="0.4"/>
+        </node>
+    </group>
+
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+
+    <rosparam file="$(find jackal_navigation)/params/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find jackal_navigation)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    
+    <rosparam file="$(find jackal_navigation)/params/map_nav_params/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find jackal_navigation)/params/map_nav_params/global_costmap_params.yaml" command="load" />
+    
+    <rosparam file="$(find jackal-rgbd-navigation)/config/base_local_planner_params.yaml" command="load" />
+    <rosparam file="$(find jackal_navigation)/params/move_base_params.yaml" command="load" />
+
+      <!-- Local and global planner -->
+      <param name="base_local_planner"      value="base_local_planner/TrajectoryPlannerROS"/>
+      <param name="base_global_planner"     value="navfn/NavfnROS" />
+
+      <remap from="map"                     to="rtabmap/grid_map"/>
+      <remap from="odom"                    to="odometry/filtered"/>
+
+    </node>
+</launch>
