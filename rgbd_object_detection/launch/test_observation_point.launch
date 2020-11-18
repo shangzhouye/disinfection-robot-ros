@@ -1,0 +1,11 @@
+<launch>
+
+  <!-- Run the map server -->
+  <arg name="map_file" default="/home/shangzhouye/.ros/map.yaml"/>
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+  <node name="observation_point_generation" pkg="rgbd_object_detection" type="observation_point_generation" output="screen"/>
+
+  <node name="rviz" pkg="rviz" type="rviz"  args="-d $(find rgbd_object_detection)/rviz/test_observation_point.rviz"/>
+
+</launch>

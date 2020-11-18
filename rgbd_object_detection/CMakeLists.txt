@@ -179,6 +179,10 @@ add_executable(run_object_detection src/run_object_detection.cpp)
 add_dependencies(run_object_detection object_detector_v2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(run_object_detection object_detector_v2 ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 
+add_executable(observation_point_generation src/observation_point_generation.cpp)
+add_dependencies(observation_point_generation ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(observation_point_generation ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
