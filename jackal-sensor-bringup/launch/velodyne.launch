@@ -4,6 +4,10 @@
     <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="points2scan" >
         <remap from="cloud_in" to="velodyne_points"/>
         <remap from="scan" to="front/scan"/>
+        <rosparam>
+            min_height: 0.0
+            max_height: 1.5   
+        </rosparam>
     </node>
 
     <node pkg="tf" type="static_transform_publisher" name="base2velodyne" args="0 0 0.3 0 0 0 /base_link /velodyne 100"/>
