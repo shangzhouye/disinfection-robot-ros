@@ -4,6 +4,8 @@
 /// PARAMETERS:
 ///     Clustering parameters - cluster_tolerance, min_cluster_size, max_cluster_size
 ///     Maximum size (length/width) of a potential object - size_max_
+///     Minimum size (length/width) of a potential object - size_min_
+///     Maximum length/width radio (to eliminate long walls) - length_width_radio_max_
 ///     Loop rate of publish markers - loop_rate_
 
 #include "ros/ros.h"
@@ -54,7 +56,9 @@ public:
     int marker_id_ = 0;
     double loop_rate_ = 2.0;
 
-    double size_max_ = 2.0;
+    double size_max_ = 4.0;
+    double size_min_ = 0.3;
+    double length_width_radio_max_ = 5;
 
     PointCloud::Ptr occupied_cloud_;
 
@@ -137,8 +141,8 @@ public:
         std::vector<pcl::PointIndices> cluster_indices;
         pcl::EuclideanClusterExtraction<PointT> ec;
 
-        ec.setClusterTolerance(2.0 * map_info_.resolution);
-        ec.setMinClusterSize(10);
+        ec.setClusterTolerance(3.0 * map_info_.resolution);
+        ec.setMinClusterSize(20);
         ec.setMaxClusterSize(map_info_.height * map_info_.width);
         ec.setSearchMethod(tree);
         ec.setInputCloud(in_cloud);
@@ -188,7 +192,10 @@ public:
     */
     bool potential_object_validate(visualization_msgs::Marker box)
     {
-        if (box.scale.x >= size_max_ || box.scale.y >= size_max_)
+        if (box.scale.x >= size_max_ || box.scale.y >= size_max_ ||
+            box.scale.x <= size_min_ || box.scale.y <= size_min_ ||
+            box.scale.x / box.scale.y > length_width_radio_max_ ||
+            box.scale.y / box.scale.x > length_width_radio_max_)
         {
             return false;
         }

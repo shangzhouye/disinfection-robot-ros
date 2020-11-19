@@ -8,6 +8,12 @@ Todos:
 - Wrap object into a class
 - only publish an object when its associated time > threshold
 - only set to can clean when an object is not occupied for a few consecutive frames
+
+PARAMETERS:
+    ground_plane_height_
+    iou_thresh_
+    dist_thresh_
+    need_clean_thresh_
 '''
 
 from __future__ import print_function
