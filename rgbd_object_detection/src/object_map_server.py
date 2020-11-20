@@ -68,7 +68,7 @@ class ObjectMap:
 
         for i in range(len(self.object_map_)):
             line_strip = Marker()
-            line_strip.header.frame_id = "velodyne"
+            line_strip.header.frame_id = "map"
             line_strip.header.stamp = rospy.Time.now()
             line_strip.ns = "object_map"
             line_strip.action = Marker.ADD

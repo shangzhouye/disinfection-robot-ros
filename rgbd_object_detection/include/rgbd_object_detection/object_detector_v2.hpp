@@ -35,6 +35,9 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <memory>
+#include <geometry_msgs/TransformStamped.h>
+#include <eigen_conversions/eigen_msg.h>
+#include <tf2_ros/transform_listener.h>
 
 namespace disinfection_robot
 {
@@ -75,11 +78,16 @@ public:
 
     ros::Publisher overlap_image_pub_;
 
+    // transform listener
+    tf2_ros::Buffer tfBuffer_;
+    tf2_ros::TransformListener tfListener_;
+
 public:
     ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 1),
                                             result_sub_(nh, "maskrcnn/bbox", 1),
                                             sync_(MySyncPolicy(10), raw_pc_sub_, result_sub_),
-                                            my_camera_(nh)
+                                            my_camera_(nh),
+                                            tfListener_(tfBuffer_)
     {
 
         objects_pub_ = nh.advertise<sensor_msgs::PointCloud2>("objects_clouds", 10);
@@ -158,6 +166,12 @@ public:
     void pcl_image_overlap(const PointCloudProjection &projected_cloud,
                            cv::Mat &image,
                            cv::Mat colormap);
+
+    /*! \brief Transform the convex hull from the velodyne frame to the map frame
+    * 
+    *  \param convex_hull_cloud - the point cloud of the convex hull, it will be modified
+    */
+    void velodyne2map_frame(PointCloud::Ptr convex_hull_cloud);
 };
 
 } // namespace disinfection_robot

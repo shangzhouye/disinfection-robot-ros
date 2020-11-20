@@ -16,6 +16,9 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   message_generation
   message_filters
+  tf2
+  tf2_ros
+  eigen_conversions
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,7 +113,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES rgbd_object_detection
- CATKIN_DEPENDS roscpp rospy sensor_msgs cv_bridge std_msgs image_transport message_runtime message_filters
+ CATKIN_DEPENDS roscpp rospy sensor_msgs cv_bridge std_msgs image_transport message_runtime message_filters tf2_ros eigen_conversions
 #  DEPENDS system_lib
 )
 

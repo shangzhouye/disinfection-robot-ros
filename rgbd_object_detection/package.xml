@@ -80,6 +80,18 @@
   <exec_depend>message_filters</exec_depend>
   <build_export_depend>message_filters</build_export_depend>
 
+    <build_depend>tf2</build_depend>
+  <build_export_depend>tf2</build_export_depend>
+  <exec_depend>tf2</exec_depend>
+
+  <build_depend>tf2_ros</build_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <build_export_depend>tf2_ros</build_export_depend>
+
+  <build_depend>eigen_conversions</build_depend>
+  <exec_depend>eigen_conversions</exec_depend>
+  <build_export_depend>eigen_conversions</build_export_depend>
+
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->

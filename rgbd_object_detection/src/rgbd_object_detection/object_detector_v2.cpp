@@ -28,6 +28,8 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <memory>
+#include <geometry_msgs/TransformStamped.h>
+#include <eigen_conversions/eigen_msg.h>
 
 namespace disinfection_robot
 {
@@ -166,9 +168,9 @@ void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
                                       visualization_msgs::MarkerArray &marker_array)
 {
     visualization_msgs::Marker line_strip;
-    line_strip.header.frame_id = "velodyne";
+    line_strip.header.frame_id = "map";
     line_strip.header.stamp = ros::Time::now();
-    line_strip.ns = "lines";
+    line_strip.ns = "current_frame_convex";
     line_strip.action = visualization_msgs::Marker::ADD;
     line_strip.pose.orientation.w = 1.0;
 
@@ -240,6 +242,37 @@ void ObjectDetectorV2::pcl_image_overlap(const PointCloudProjection &projected_c
         int b = color[2];
         cv::circle(image, cvPoint(projected_cloud.points_2d[i][0], projected_cloud.points_2d[i][1]),
                    2, CV_RGB(r, g, b), -1);
+    }
+}
+
+void ObjectDetectorV2::velodyne2map_frame(PointCloud::Ptr convex_hull_cloud)
+{
+    // listen to the transform
+    geometry_msgs::TransformStamped transformStamped;
+    try
+    {
+        transformStamped = tfBuffer_.lookupTransform("map",
+                                                     "base_link",
+                                                     ros::Time(0));
+    }
+    catch (tf2::TransformException &ex)
+    {
+        ROS_WARN("%s", ex.what());
+        return;
+    }
+
+    Eigen::Affine3d T_mb;
+    tf::transformMsgToEigen(transformStamped.transform, T_mb);
+
+    for (size_t i = 0; i < convex_hull_cloud->points.size(); ++i)
+    {
+        Eigen::Vector3d p_b(convex_hull_cloud->points[i].x,
+                            convex_hull_cloud->points[i].y,
+                            convex_hull_cloud->points[i].z);
+        Eigen::Vector3d p_m = (T_mb.matrix() * p_b.colwise().homogeneous()).colwise().hnormalized();
+        convex_hull_cloud->points[i].x = p_m[0];
+        convex_hull_cloud->points[i].y = p_m[1];
+        convex_hull_cloud->points[i].z = p_m[2];
     }
 }
 
@@ -318,6 +351,7 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
             continue;
         }
         PointCloud::Ptr convex_hull_cloud = find_2D_convex_hull(each_object);
+        velodyne2map_frame(convex_hull_cloud);
         polygon_marker(convex_hull_cloud, polygon_array);
     }
 
