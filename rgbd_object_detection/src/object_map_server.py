@@ -31,6 +31,10 @@ import shapely.geometry
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import ConvexHull
 
+import tf
+from tf import TransformListener
+from geometry_msgs.msg import PoseStamped
+
 class ObjectMap:
 
     def __init__(self):
@@ -60,6 +64,8 @@ class ObjectMap:
         self.dist_thresh_ = 0.6 # the distance from a person to an object for the object to be considered as occupied
 
         self.need_clean_thresh_ = 60 # how many frame an object is occupied make it needs to be cleaned
+
+        self.tf_listener_ = TransformListener()
 
     def publish_convex_hull_marker(self):
         ''' Publish the object map
@@ -92,13 +98,13 @@ class ObjectMap:
                 point = Point()
                 point.x = self.object_map_[i][j, 0]
                 point.y = self.object_map_[i][j, 1]
-                point.z = self.ground_plane_height_
+                point.z = 0
                 line_strip.points.append(point)
 
             point = Point()
             point.x = self.object_map_[i][0, 0]
             point.y = self.object_map_[i][0, 1]
-            point.z = self.ground_plane_height_
+            point.z = 0
             line_strip.points.append(point)
 
             line_strip.lifetime = rospy.Duration(0)
@@ -220,12 +226,26 @@ class ObjectMap:
         # if hasn't initialized yet, return
         if self.object_map_ == None:
             return
+
+        if self.tf_listener_.frameExists("map") and self.tf_listener_.frameExists("velodyne"):
+            t = self.tf_listener_.getLatestCommonTime("map", "velodyne")
+
         
         # store all the person
         person_list = []
         for person_marker in data.markers[0].points:
-            person = shapely.geometry.Point(person_marker.x,\
-                                            person_marker.y)
+
+            # transform to map frame
+            pos_in_velodyne = PoseStamped()
+            pos_in_velodyne.pose.position.x = person_marker.x
+            pos_in_velodyne.pose.position.y = person_marker.y
+            pos_in_velodyne.header.frame_id = "velodyne"
+            pos_in_velodyne.pose.orientation.w = 1.0
+            pos_in_map = self.tf_listener_.transformPose("map", pos_in_velodyne)
+
+
+            person = shapely.geometry.Point(pos_in_map.pose.position.x,\
+                                            pos_in_map.pose.position.y)
             person_list.append(person)
         
         
@@ -248,8 +268,8 @@ class ObjectMap:
                 self.need_clean_[idx] = True
 
 def main(args):
-    object_map_server = ObjectMap()
     rospy.init_node('object_map_server', anonymous=True)
+    object_map_server = ObjectMap()
     rospy.spin()
 
 if __name__ == '__main__':
