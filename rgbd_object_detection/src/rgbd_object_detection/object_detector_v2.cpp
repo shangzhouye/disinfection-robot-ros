@@ -192,14 +192,14 @@ void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
         geometry_msgs::Point p;
         p.x = polygon->points[i].x;
         p.y = polygon->points[i].y;
-        p.z = ground_plane_height_;
+        p.z = 0;
         line_strip.points.push_back(p);
     }
 
     geometry_msgs::Point p;
     p.x = polygon->points[0].x;
     p.y = polygon->points[0].y;
-    p.z = ground_plane_height_;
+    p.z = 0;
     line_strip.points.push_back(p);
 
     line_strip.lifetime = ros::Duration(1.0 / loop_rate_);
@@ -252,7 +252,7 @@ void ObjectDetectorV2::velodyne2map_frame(PointCloud::Ptr convex_hull_cloud)
     try
     {
         transformStamped = tfBuffer_.lookupTransform("map",
-                                                     "base_link",
+                                                     "velodyne",
                                                      ros::Time(0));
     }
     catch (tf2::TransformException &ex)

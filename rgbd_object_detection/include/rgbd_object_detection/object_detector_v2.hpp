@@ -83,9 +83,9 @@ public:
     tf2_ros::TransformListener tfListener_;
 
 public:
-    ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 1),
-                                            result_sub_(nh, "maskrcnn/bbox", 1),
-                                            sync_(MySyncPolicy(10), raw_pc_sub_, result_sub_),
+    ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 100),
+                                            result_sub_(nh, "maskrcnn/bbox", 100),
+                                            sync_(MySyncPolicy(100), raw_pc_sub_, result_sub_),
                                             my_camera_(nh),
                                             tfListener_(tfBuffer_)
     {
