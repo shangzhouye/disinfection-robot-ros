@@ -1,0 +1,12 @@
+<!-- Stage 2: Build object map -->
+<launch>
+
+    <!-- Object detection -->
+    <node name="run_object_detection" pkg="rgbd_object_detection" type="run_object_detection" output="screen"/>
+
+    <!-- Data association and map server -->
+    <node name="object_map_server" pkg="rgbd_object_detection" type="object_map_server.py" output="screen"/>
+
+    <node name="rviz" pkg="rviz" type="rviz"  args="-d $(find rgbd_object_detection)/rviz/s2.rviz"/>
+
+</launch>

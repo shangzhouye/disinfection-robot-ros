@@ -1,0 +1,14 @@
+<!-- Stage 2: Build object map -->
+<launch>
+    <!-- Run amcl and move_base -->
+    <include file="$(find jackal-rgbd-navigation)/launch/amcl_on_jackal.launch" />
+
+    <rosparam command="load" file="$(find rgbd_object_detection)/config/realsense.yaml" />
+
+    <!-- <node pkg="tf" type="static_transform_publisher" name="camera2color_optical" args="-0.001 0.015 -0.000 -1.572 -0.002 -1.571 camera_link camera_color_optical_frame 100"/> -->
+    <!-- <node pkg="tf" type="static_transform_publisher" name="camera2depth_optical" args="0.000 0.000 0.000 -1.571 -0.000 -1.571 camera_link camera_depth_optical_frame 100"/> -->
+    
+    <!-- Adjusted extrinsic from lidar to camera_link -->
+    <node pkg="tf" type="static_transform_publisher" name="velodyne2camera" args="-0.15 0 0.95 0 0.349066 0 velodyne camera_link 100"/>
+
+</launch>
