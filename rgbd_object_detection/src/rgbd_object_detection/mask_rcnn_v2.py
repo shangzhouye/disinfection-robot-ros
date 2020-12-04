@@ -60,6 +60,7 @@ class MaskRCNN:
         self.cfg_.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
         self.cfg_.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
         self.cfg_.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
+        self.cfg_.MODEL.DEVICE='cpu'
         self.predictor_ = DefaultPredictor(self.cfg_)
         self.class_names_ = MetadataCatalog.get(self.cfg_.DATASETS.TRAIN[0]).get("thing_classes", None)
 
@@ -135,44 +136,40 @@ class MaskRCNN:
     
     def callback_run_maskrcnn(self, req):
 
-        rate = rospy.Rate(self.loop_rate_)
-        for i in range(int(self.loop_rate_ * self.running_duration_)):
-            
-            self.data_lock_.acquire()
-            # Read the image
-            try:
-                cv_image = self.bridge_.imgmsg_to_cv2(self.latest_image_, "bgr8")
-            except CvBridgeError as e:
-                print(e)
-                return
+        self.data_lock_.acquire()
+        # Read the image
+        try:
+            cv_image = self.bridge_.imgmsg_to_cv2(self.latest_image_, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+            return
 
-            header_copy = copy.deepcopy(self.latest_image_.header)
-            self.data_lock_.release()
+        header_copy = copy.deepcopy(self.latest_image_.header)
+        self.data_lock_.release()
 
-            # (rows, cols, channels) = self.latest_image_.shape
-            # print("Received image: ", rows, " ", cols, " ", channels)
+        # (rows, cols, channels) = self.latest_image_.shape
+        # print("Received image: ", rows, " ", cols, " ", channels)
 
-            # inference on image
-            # start = time.time()
-            outputs = self.predictor_(cv_image)
-            outputs_cpu = outputs["instances"].to("cpu")
-            # end = time.time()
-            # print("Inference time: ", end - start)
+        # inference on image
+        # start = time.time()
+        outputs = self.predictor_(cv_image)
+        outputs_cpu = outputs["instances"].to("cpu")
+        end = time.time()
+        # print("Inference time: ", end - start)
 
-            # print("Classes list: ", outputs["instances"].pred_classes)
-            # print("Bounding boxes", outputs["instances"].pred_boxes)
+        # print("Classes list: ", outputs["instances"].pred_classes)
+        # print("Bounding boxes", outputs["instances"].pred_boxes)
 
-            publish_msg = self.publish_result(header_copy, outputs_cpu, cv_image)
-            self.result_bbox_pub_.publish(publish_msg)
+        publish_msg = self.publish_result(header_copy, outputs_cpu, cv_image)
+        self.result_bbox_pub_.publish(publish_msg)
 
-            # visualize results
-            visual = Visualizer(cv_image[:, :, ::-1], MetadataCatalog.get(self.cfg_.DATASETS.TRAIN[0]), scale=1)
-            out = visual.draw_instance_predictions(outputs_cpu)
-            try:
-                self.result_pub_.publish(self.bridge_.cv2_to_imgmsg(out.get_image()[:, :, ::-1], "bgr8"))
-            except CvBridgeError as e:
-                print(e)
-            rate.sleep()
+        # visualize results
+        visual = Visualizer(cv_image[:, :, ::-1], MetadataCatalog.get(self.cfg_.DATASETS.TRAIN[0]), scale=1)
+        out = visual.draw_instance_predictions(outputs_cpu)
+        try:
+            self.result_pub_.publish(self.bridge_.cv2_to_imgmsg(out.get_image()[:, :, ::-1], "bgr8"))
+        except CvBridgeError as e:
+            print(e)
 
         return EmptyResponse()
 
