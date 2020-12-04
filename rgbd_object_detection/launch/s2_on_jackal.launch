@@ -1,7 +1,7 @@
 <!-- Stage 2: Build object map -->
 <launch>
     <!-- Run amcl and move_base -->
-    <include file="$(find jackal-rgbd-navigation)/launch/amcl_on_jackal.launch" />
+    <include file="$(find jackal-rgbd-navigation)/launch/slam_toolbox_loc_by_slam.launch" />
 
     <rosparam command="load" file="$(find rgbd_object_detection)/config/realsense.yaml" />
 

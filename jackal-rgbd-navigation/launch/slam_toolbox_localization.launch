@@ -1,0 +1,11 @@
+<launch>
+
+    <node pkg="slam_toolbox" type="localization_slam_toolbox_node" name="slam_toolbox" output="screen">
+        <rosparam command="load" file="$(find jackal-rgbd-navigation)/config/mapper_params_localization.yaml" />
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="base2velodyne" args="0 0 0.3 0 0 0 /base_link /velodyne 100"/>
+    <node pkg="tf" type="static_transform_publisher" name="velodyne2front_laser" args="0 0 0 0 0 0 /velodyne /front_laser 100"/>
+
+
+</launch>
