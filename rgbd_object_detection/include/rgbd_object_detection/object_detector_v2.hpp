@@ -7,6 +7,7 @@
 ///     Clustering parameters - cluster_tolerance, min_cluster_size, max_cluster_size
 ///     Dowsampling voxel filter - resolution
 ///     Loop rate of this detection system - loop_rate_
+///     Max distance from object centroid to origin - max_distance_
 
 #include "ros/ros.h"
 #include <sensor_msgs/PointCloud2.h>
@@ -82,6 +83,8 @@ public:
     tf2_ros::Buffer tfBuffer_;
     tf2_ros::TransformListener tfListener_;
 
+    float max_distance_ = 3.0;
+
 public:
     ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 100),
                                             result_sub_(nh, "maskrcnn/bbox", 100),
@@ -128,12 +131,12 @@ public:
     */
     void find_largest_cluster(PointCloud::Ptr object_cloud,
                               double cluster_tolerance = 0.2,
-                              int min_cluster_size = 100,
+                              int min_cluster_size = 50,
                               int max_cluster_size = 307200);
 
     /*! \brief find the projected 2D convex hull of  the object
     *
-    *  \param in_cloud - pointcloud of an object
+    *  \param in_cloud - pointcloud of an object (2D)
     *  \return convex hull vertices
     */
     PointCloud::Ptr find_2D_convex_hull(PointCloud::Ptr in_cloud);
@@ -172,6 +175,20 @@ public:
     *  \param convex_hull_cloud - the point cloud of the convex hull, it will be modified
     */
     void velodyne2map_frame(PointCloud::Ptr convex_hull_cloud);
+
+    /*! \brief Project a point cloud onto 2D plane
+    * 
+    *  \param in_cloud - the point cloud will be modified
+    */
+    void cloud_2d(PointCloud::Ptr in_cloud);
+
+    /*! \brief Check if this object point cloud is valid
+    *           Eliminate point cloud that is too far away or has the shape of wall
+    * 
+    *  \param in_cloud - the point cloud will be modified
+    *  \return if this object point cloud is valid
+    */
+    bool is_valid_object(PointCloud::Ptr in_cloud);
 };
 
 } // namespace disinfection_robot

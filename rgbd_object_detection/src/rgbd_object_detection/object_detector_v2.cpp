@@ -6,6 +6,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/common/centroid.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/synchronizer.h>
@@ -66,12 +67,30 @@ void ObjectDetectorV2::extract_by_mask(PointCloud::Ptr input_pc,
     object_pc_list.push_back(current_cloud);
 }
 
+bool ObjectDetectorV2::is_valid_object(PointCloud::Ptr in_cloud)
+{
+    // calculate centroid distance to origin
+    Eigen::Vector4f xyz_centroid;
+
+    // Estimate the XYZ centroid
+    pcl::compute3DCentroid(*in_cloud, xyz_centroid);
+
+    float distance = sqrt(pow(xyz_centroid[0], 2) + pow(xyz_centroid[1], 2));
+    std::cout << "Distance is " << distance << std::endl;
+
+    if (distance > max_distance_)
+    {
+        return false;
+    }
+    return true;
+}
+
 void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
                                             double cluster_tolerance,
                                             int min_cluster_size,
                                             int max_cluster_size)
 {
-
+    std::cout << "Each object" << std::endl;
     std::vector<pcl::PointIndices> object_indices;
 
     pcl::EuclideanClusterExtraction<PointT> euclid;
@@ -81,13 +100,46 @@ void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
     euclid.setMaxClusterSize(max_cluster_size);
     euclid.extract(object_indices);
 
+    // clusters point cloud
+    std::vector<PointCloud::Ptr> clusters;
+
+    for (size_t i = 0; i < object_indices.size(); ++i)
+    {
+        PointCloud::Ptr new_cloud(new PointCloud());
+
+        // Reify indices into a point cloud of the object.
+        pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+        *indices = object_indices[i];
+        pcl::ExtractIndices<PointT> extract;
+        extract.setInputCloud(object_cloud);
+        extract.setIndices(indices);
+        extract.filter(*new_cloud);
+
+        // check if this cloud is valid
+        if (is_valid_object(new_cloud) == false)
+        {
+            std::cout << "Excluded" << std::endl;
+            continue;
+        }
+
+        clusters.push_back(new_cloud);
+    }
+
+    if (clusters.size() == 0)
+    {
+        // std::cout << "No valid clusters." << std::endl;
+        PointCloud::Ptr new_cloud(new PointCloud());
+        new_cloud->swap(*object_cloud);
+        return;
+    }
+
     // Find the size of the largest object,
     // where size = number of points in the cluster
     size_t max_size = std::numeric_limits<size_t>::min();
     int max_cluster_id = 0;
-    for (size_t i = 0; i < object_indices.size(); ++i)
+    for (size_t i = 0; i < clusters.size(); ++i)
     {
-        size_t current_size = object_indices[0].indices.size();
+        size_t current_size = clusters[i]->points.size();
         if (current_size > max_size)
         {
             max_size = current_size;
@@ -98,25 +150,16 @@ void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
     // ROS_INFO("Found %ld objects, max size: %ld",
     //          object_indices.size(), max_size);
 
-    PointCloud::Ptr new_cloud(new PointCloud());
-
     if (max_size == 0)
     {
         // ROS_INFO("No cluster found.");
+        PointCloud::Ptr new_cloud(new PointCloud());
         new_cloud->swap(*object_cloud);
 
         return;
     }
 
-    // Reify indices into a point cloud of the object.
-    pcl::PointIndices::Ptr indices(new pcl::PointIndices);
-    *indices = object_indices[max_cluster_id];
-    pcl::ExtractIndices<PointT> extract;
-    extract.setInputCloud(object_cloud);
-    extract.setIndices(indices);
-    extract.filter(*new_cloud);
-
-    new_cloud->swap(*object_cloud);
+    clusters[max_cluster_id]->swap(*object_cloud);
 
     return;
 }
@@ -138,24 +181,20 @@ void ObjectDetectorV2::project2image_plane(PointCloud::Ptr in_cloud, PointCloudP
     return;
 }
 
+void ObjectDetectorV2::cloud_2d(PointCloud::Ptr in_cloud)
+{
+    for (size_t i = 0; i < in_cloud->points.size(); ++i)
+    {
+        in_cloud->points[i].z = 0;
+    }
+}
+
 PointCloud::Ptr ObjectDetectorV2::find_2D_convex_hull(PointCloud::Ptr in_cloud)
 {
 
-    PointCloud::Ptr cloud_2d(new PointCloud);
-
-    for (size_t i = 0; i < in_cloud->points.size(); ++i)
-    {
-        PointT p;
-        p.x = in_cloud->points[i].x;
-        p.y = in_cloud->points[i].y;
-        p.z = 0;
-
-        cloud_2d->points.push_back(p);
-    }
-
     PointCloud::Ptr convex_hull(new PointCloud);
     pcl::ConvexHull<pcl::PointXYZ> chull;
-    chull.setInputCloud(cloud_2d);
+    chull.setInputCloud(in_cloud);
     chull.reconstruct(*convex_hull);
 
     // std::cout << "Convex hull has: " << convex_hull->size()
@@ -279,7 +318,7 @@ void ObjectDetectorV2::velodyne2map_frame(PointCloud::Ptr convex_hull_cloud)
 void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc,
                                      const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result)
 {
-    // std::cout << "Inside callback" << std::endl;
+    std::cout << "Inside callback" << std::endl;
 
     PointCloud::Ptr input_pc(new PointCloud);
     pcl::fromROSMsg(*raw_pc, *input_pc);
@@ -342,7 +381,10 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
     // for each object cloud, do downsampling and clustering
     for (auto each_object : objects_clouds)
     {
-        voxel_filter(each_object, 0.01);
+        // downsampling
+        // voxel_filter(each_object, 0.01);
+
+        cloud_2d(each_object);
         find_largest_cluster(each_object);
 
         // if there is no clusters, ignore this object

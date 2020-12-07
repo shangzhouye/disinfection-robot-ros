@@ -212,10 +212,10 @@ class ObjectMap:
 
         if self.object_map_ == None:
             # initailize the map
-            self.object_map_ = []
-            self.associated_times_ = []
-            self.occupied_ = []
-            self.need_clean_ = []
+            self.object_map_ = [current_frame_detection[0]]
+            self.associated_times_ = [1]
+            self.occupied_ = [0]
+            self.need_clean_ = [False]
             for det in current_frame_detection:
                 self.data_association([det])
             self.publish_convex_hull_marker()
