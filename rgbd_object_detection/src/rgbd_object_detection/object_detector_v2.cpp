@@ -7,6 +7,8 @@
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/common/centroid.h>
+#include <pcl/common/pca.h>
+#include <pcl/common/common.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/synchronizer.h>
@@ -76,12 +78,41 @@ bool ObjectDetectorV2::is_valid_object(PointCloud::Ptr in_cloud)
     pcl::compute3DCentroid(*in_cloud, xyz_centroid);
 
     float distance = sqrt(pow(xyz_centroid[0], 2) + pow(xyz_centroid[1], 2));
-    std::cout << "Distance is " << distance << std::endl;
+    // std::cout << "Distance is " << distance << std::endl;
 
     if (distance > max_distance_)
     {
         return false;
     }
+
+    // Do PCA and check the dimension ratio
+    Eigen::Matrix3f covariance;
+    pcl::computeCovarianceMatrixNormalized(*in_cloud, xyz_centroid, covariance);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
+    Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
+    eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));
+
+    // Transform the original cloud to the origin where the principal components correspond to the axes.
+    Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
+    projectionTransform.block<3, 3>(0, 0) = eigenVectorsPCA.transpose();
+    projectionTransform.block<3, 1>(0, 3) = -1.f * (projectionTransform.block<3, 3>(0, 0) * xyz_centroid.head<3>());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPointsProjected(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::transformPointCloud(*in_cloud, *cloudPointsProjected, projectionTransform);
+    // Get the minimum and maximum points of the transformed cloud.
+    pcl::PointXYZ minPoint, maxPoint;
+    pcl::getMinMax3D(*cloudPointsProjected, minPoint, maxPoint);
+
+    float dim1 = abs(maxPoint.getVector4fMap()[1] - minPoint.getVector4fMap()[1]);
+    float dim2 = abs(maxPoint.getVector4fMap()[2] - minPoint.getVector4fMap()[2]);
+    float dimension_ratio = (dim1 >= dim2) ? (dim1 / dim2) : (dim2 / dim1);
+
+    // std::cout << "Dimension ratio is " << dimension_ratio << std::endl;
+
+    if (dimension_ratio > max_dimension_ratio_)
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -90,7 +121,7 @@ void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
                                             int min_cluster_size,
                                             int max_cluster_size)
 {
-    std::cout << "Each object" << std::endl;
+    // std::cout << "Each object" << std::endl;
     std::vector<pcl::PointIndices> object_indices;
 
     pcl::EuclideanClusterExtraction<PointT> euclid;
@@ -318,7 +349,7 @@ void ObjectDetectorV2::velodyne2map_frame(PointCloud::Ptr convex_hull_cloud)
 void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &raw_pc,
                                      const rgbd_object_detection::MaskrcnnResult::ConstPtr &mask_result)
 {
-    std::cout << "Inside callback" << std::endl;
+    // std::cout << "Inside callback" << std::endl;
 
     PointCloud::Ptr input_pc(new PointCloud);
     pcl::fromROSMsg(*raw_pc, *input_pc);

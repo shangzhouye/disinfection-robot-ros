@@ -8,6 +8,7 @@
 ///     Dowsampling voxel filter - resolution
 ///     Loop rate of this detection system - loop_rate_
 ///     Max distance from object centroid to origin - max_distance_
+///     Max dimension radio of an object (length/width at principal coordinate) - max_dimension_ratio_
 
 #include "ros/ros.h"
 #include <sensor_msgs/PointCloud2.h>
@@ -84,6 +85,7 @@ public:
     tf2_ros::TransformListener tfListener_;
 
     float max_distance_ = 3.0;
+    float max_dimension_ratio_ = 4.0;
 
 public:
     ObjectDetectorV2(ros::NodeHandle &nh) : raw_pc_sub_(nh, "velodyne_points", 100),
@@ -183,7 +185,7 @@ public:
     void cloud_2d(PointCloud::Ptr in_cloud);
 
     /*! \brief Check if this object point cloud is valid
-    *           Eliminate point cloud that is too far away or has the shape of wall
+    *           Eliminate point cloud that is too far away or has the shape of wall (check dimension ratio)
     * 
     *  \param in_cloud - the point cloud will be modified
     *  \return if this object point cloud is valid
