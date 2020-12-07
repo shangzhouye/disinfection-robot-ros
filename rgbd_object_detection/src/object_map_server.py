@@ -125,30 +125,9 @@ class ObjectMap:
         iou = poly_1.intersection(poly_2).area / poly_1.union(poly_2).area
         return iou
 
-    def convex_hull_callback(self, data):
-        # subcribe to all the objects (convex hull) in current frame
-
-        current_frame_detection = [] # stores all the objects in this frame, a list of numpy arrays
-
-        for marker in data.markers:
-            object_convex_hull =  np.empty((0,2), float)
-            for point in marker.points:
-                # add each point into the list
-                object_convex_hull = np.append(object_convex_hull, [[point.x, point.y]], axis=0)
-            
-            current_frame_detection.append(object_convex_hull)
-
-
-        # do data association using the Hungarian algorithm
-
-        if self.object_map_ == None:
-            # initailize the map
-            self.object_map_ = current_frame_detection
-            self.associated_times_ = [1] * len(current_frame_detection)
-            self.occupied_ = [0] * len(current_frame_detection)
-            self.need_clean_ = [False] * len(current_frame_detection)
-            return
-
+    def data_association(self, current_frame_detection):
+        ''' Implement the data association pipeline
+        '''
         # create a matrix of IoU scores
         # rows are detection list, columns are map list
         '''
@@ -213,6 +192,40 @@ class ObjectMap:
             # update the object
             self.object_map_[matched_object_in_map] = new_points[new_convex_hull.vertices, :]
 
+
+
+    def convex_hull_callback(self, data):
+        # subcribe to all the objects (convex hull) in current frame
+
+        current_frame_detection = [] # stores all the objects in this frame, a list of numpy arrays
+
+        for marker in data.markers:
+            object_convex_hull =  np.empty((0,2), float)
+            for point in marker.points:
+                # add each point into the list
+                object_convex_hull = np.append(object_convex_hull, [[point.x, point.y]], axis=0)
+            
+            current_frame_detection.append(object_convex_hull)
+
+
+        # do data association using the Hungarian algorithm
+
+        if self.object_map_ == None:
+            # initailize the map
+            self.object_map_ = []
+            self.associated_times_ = []
+            self.occupied_ = []
+            self.need_clean_ = []
+            for det in current_frame_detection:
+                self.data_association([det])
+            self.publish_convex_hull_marker()
+            return
+
+
+        # feed each object into the data association pipeline separately to avoid duplicated detections
+        # in the same frame
+        for det in current_frame_detection:
+            self.data_association([det])
         
 
         # publish object list

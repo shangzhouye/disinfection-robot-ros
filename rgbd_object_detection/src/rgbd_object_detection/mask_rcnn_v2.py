@@ -154,7 +154,7 @@ class MaskRCNN:
         # start = time.time()
         outputs = self.predictor_(cv_image)
         outputs_cpu = outputs["instances"].to("cpu")
-        end = time.time()
+        # end = time.time()
         # print("Inference time: ", end - start)
 
         # print("Classes list: ", outputs["instances"].pred_classes)
