@@ -5,8 +5,6 @@
 Note that the initialization of objects are important
 
 Todos:
-- Wrap object into a class
-- only publish an object when its associated time > threshold
 - only set to can clean when an object is not occupied for a few consecutive frames
 
 PARAMETERS:
@@ -35,6 +33,29 @@ import tf
 from tf import TransformListener
 from geometry_msgs.msg import PoseStamped
 
+class ObjectMarker:
+    def __init__(self, points):
+        self.points_ = points # stores all the points of the convex hull
+        self.associated_times_ = 1 # record how many times an object has been associated
+        self.occupied_ = 0 # record how many frames an object has been occupied (a person is there)
+        self.need_clean_ = False # record whether an object needs disinfection
+
+    def update_points(self, new_points):
+        self.points_ = new_points
+
+    def add_associated_times(self):
+        self.associated_times_ += 1
+    
+    def add_occupied_times(self):
+        self.occupied_ += 1
+
+    def set_need_clean(self):
+        self.need_clean_ = True
+
+    def reset_need_clean(self):
+        self.need_clean_ = False
+
+
 class ObjectMap:
 
     def __init__(self):
@@ -54,15 +75,10 @@ class ObjectMap:
 
         self.ground_plane_height_ = -0.35
 
-        self.object_map_ = None
-        self.associated_times_ = None # record how many times an object has been associated
-        self.occupied_ = None # record how many frames an object has been occupied (a person is there)
-        self.need_clean_ = None # record whether an object needs disinfection
+        self.object_map_ = []
 
         self.iou_thresh_ = 0.1 # iou threshold for data association
-
         self.dist_thresh_ = 0.6 # the distance from a person to an object for the object to be considered as occupied
-
         self.need_clean_thresh_ = 60 # how many frame an object is occupied make it needs to be cleaned
 
         self.tf_listener_ = TransformListener()
@@ -87,23 +103,23 @@ class ObjectMap:
             line_strip.scale.x = 0.05
 
             line_strip.color.g = 1.0
-            if self.need_clean_[i] == True:
+            if self.object_map_[i].need_clean_ == True:
                 line_strip.color.r = 1.0
             else:
                 line_strip.color.b = 1.0
             
             line_strip.color.a = 1.0
 
-            for j in range(self.object_map_[i].shape[0]):
+            for j in range(self.object_map_[i].points_.shape[0]):
                 point = Point()
-                point.x = self.object_map_[i][j, 0]
-                point.y = self.object_map_[i][j, 1]
+                point.x = self.object_map_[i].points_[j, 0]
+                point.y = self.object_map_[i].points_[j, 1]
                 point.z = 0
                 line_strip.points.append(point)
 
             point = Point()
-            point.x = self.object_map_[i][0, 0]
-            point.y = self.object_map_[i][0, 1]
+            point.x = self.object_map_[i].points_[0, 0]
+            point.y = self.object_map_[i].points_[0, 1]
             point.z = 0
             line_strip.points.append(point)
 
@@ -146,7 +162,10 @@ class ObjectMap:
         for i in range(iou_matrix.shape[0]):
             for j in range(iou_matrix.shape[1]):
                 # calculate iou and fill the matrix
-                iou = self.calculate_iou(current_frame_detection[i], self.object_map_[j])
+                iou = self.calculate_iou(current_frame_detection[i], self.object_map_[j].points_)
+                # it can be a new detection is iou is below the threshold
+                if iou <= self.iou_thresh_:
+                    iou = 0
                 iou_matrix[i, j] = -iou # fill with negative value as cost
 
         new_detection_idx = []
@@ -154,10 +173,7 @@ class ObjectMap:
             # find new detections
             if np.sum(iou_matrix[i, :]) == 0:
                 # this is a new detection
-                self.object_map_.append(current_frame_detection[i])
-                self.associated_times_.append(1)
-                self.occupied_.append(0)
-                self.need_clean_.append(False)
+                self.object_map_.append(ObjectMarker(current_frame_detection[i]))
                 new_detection_idx.append(i)
 
         not_matched_objects = []
@@ -183,14 +199,14 @@ class ObjectMap:
                 continue
 
             # otherwise, get a new convex hull
-            self.associated_times_[matched_object_in_map] += 1
-            new_points = np.append(self.object_map_[matched_object_in_map], \
+            self.object_map_[matched_object_in_map].add_associated_times()
+            new_points = np.append(self.object_map_[matched_object_in_map].points_, \
                                     current_frame_detection[matched_detection],\
                                     axis = 0)
             
             new_convex_hull = ConvexHull(new_points)
             # update the object
-            self.object_map_[matched_object_in_map] = new_points[new_convex_hull.vertices, :]
+            self.object_map_[matched_object_in_map].update_points(new_points[new_convex_hull.vertices, :])
 
 
 
@@ -209,27 +225,17 @@ class ObjectMap:
 
 
         # do data association using the Hungarian algorithm
-
-        if self.object_map_ == None:
+        if len(self.object_map_) == 0:
             # initailize the map
-            self.object_map_ = [current_frame_detection[0]]
-            self.associated_times_ = [1]
-            self.occupied_ = [0]
-            self.need_clean_ = [False]
             for det in current_frame_detection:
-                self.data_association([det])
+                self.object_map_.append(ObjectMarker(det))
             self.publish_convex_hull_marker()
             return
+        else:
+            self.data_association(current_frame_detection)
 
-
-        # feed each object into the data association pipeline separately to avoid duplicated detections
-        # in the same frame
-        for det in current_frame_detection:
-            self.data_association([det])
-        
-
-        # publish object list
-        self.publish_convex_hull_marker()
+            # publish object list
+            self.publish_convex_hull_marker()
 
 
     def people_callback(self, data):
@@ -237,7 +243,7 @@ class ObjectMap:
         # if a person is within a specific distance, add 1 to occupied counting
 
         # if hasn't initialized yet, return
-        if self.object_map_ == None:
+        if len(self.object_map_) == 0:
             return
 
         if self.tf_listener_.frameExists("map") and self.tf_listener_.frameExists("velodyne"):
@@ -263,7 +269,7 @@ class ObjectMap:
         
         
         for obj_idx in range(len(self.object_map_)):
-            polygon = shapely.geometry.Polygon(self.object_map_[obj_idx])
+            polygon = shapely.geometry.Polygon(self.object_map_[obj_idx].points_)
             if_occupied = False
             for person in person_list:
                 distance = person.distance(polygon)
@@ -271,14 +277,15 @@ class ObjectMap:
                     if_occupied = True
             
             if if_occupied == True:
-                self.occupied_[obj_idx] += 1
+                self.object_map_[obj_idx].add_occupied_times()
         
         print(self.occupied_)
-        for idx in range(len(self.occupied_)):
+        for idx in range(len(self.object_map_)):
             # if an object has been occupied for more than a certain number of frames
             # set need clean to be true
-            if self.occupied_[idx] > self.need_clean_thresh_:
-                self.need_clean_[idx] = True
+            if self.object_map_[idx].occupied_ > self.need_clean_thresh_:
+                self.object_map_[idx].set_need_clean()
+
 
 def main(args):
     rospy.init_node('object_map_server', anonymous=True)

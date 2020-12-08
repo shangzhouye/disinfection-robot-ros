@@ -149,7 +149,7 @@ void ObjectDetectorV2::find_largest_cluster(PointCloud::Ptr object_cloud,
         // check if this cloud is valid
         if (is_valid_object(new_cloud) == false)
         {
-            std::cout << "Excluded" << std::endl;
+            // std::cout << "Excluded" << std::endl;
             continue;
         }
 
