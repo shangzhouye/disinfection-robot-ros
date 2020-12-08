@@ -84,7 +84,7 @@ public:
     tf2_ros::Buffer tfBuffer_;
     tf2_ros::TransformListener tfListener_;
 
-    float max_distance_ = 3.0;
+    float max_distance_ = 2.8;
     float max_dimension_ratio_ = 4.0;
 
 public:

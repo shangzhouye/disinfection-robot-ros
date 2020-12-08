@@ -12,6 +12,7 @@ PARAMETERS:
     iou_thresh_
     dist_thresh_
     need_clean_thresh_
+    duplicate_iou_thresh_
 '''
 
 from __future__ import print_function
@@ -77,9 +78,10 @@ class ObjectMap:
 
         self.object_map_ = []
 
-        self.iou_thresh_ = 0.1 # iou threshold for data association
+        self.iou_thresh_ = 0.05 # iou threshold for data association
         self.dist_thresh_ = 0.6 # the distance from a person to an object for the object to be considered as occupied
         self.need_clean_thresh_ = 60 # how many frame an object is occupied make it needs to be cleaned
+        self.duplicate_iou_thresh_ = 0.8 # threshold to view two detections as duplicate in the same frame
 
         self.tf_listener_ = TransformListener()
 
@@ -208,6 +210,46 @@ class ObjectMap:
             # update the object
             self.object_map_[matched_object_in_map].update_points(new_points[new_convex_hull.vertices, :])
 
+    def check_duplicate(self, polygon_1, polygon_2):
+        ''' Check if two detections are duplicate by 
+                checking whether one convex hull is (almost) completely inside the other one
+
+        Args:
+            polygon_1/polygon_2: polygons as 2D numpy array
+        '''
+
+        poly_1 = shapely.geometry.Polygon(polygon_1)
+        poly_2 = shapely.geometry.Polygon(polygon_2)
+        intersection = poly_1.intersection(poly_2).area
+        if (intersection / poly_1.area) > self.duplicate_iou_thresh_ \
+             or (intersection / poly_2.area) > self.duplicate_iou_thresh_:
+            return True
+        else:
+            return False
+
+
+    def remove_duplication_detection(self, current_frame_detection):
+        ''' Remove duplicate detection and combine them into one convex hull
+        '''
+        output = []
+        for i in range(len(current_frame_detection)):
+            no_duplicate = True
+
+            for j in range(i + 1, len(current_frame_detection)):
+                if self.check_duplicate(current_frame_detection[i], current_frame_detection[j]):
+                    no_duplicate = False
+                    new_points = np.append(current_frame_detection[i], \
+                                            current_frame_detection[j],\
+                                            axis = 0)
+                    new_convex_hull = ConvexHull(new_points)
+                    # update the new convex hull to the latter one
+                    # it will then be added to the output when the loop traverse to there
+                    current_frame_detection[j] = new_points[new_convex_hull.vertices, :]
+            
+            if no_duplicate:
+                output.append(current_frame_detection[i])
+        
+        return output
 
 
     def convex_hull_callback(self, data):
@@ -223,19 +265,19 @@ class ObjectMap:
             
             current_frame_detection.append(object_convex_hull)
 
+        if (len(current_frame_detection) == 0):
+            return
+        
+        current_frame_detection = self.remove_duplication_detection(current_frame_detection)
 
         # do data association using the Hungarian algorithm
         if len(self.object_map_) == 0:
             # initailize the map
             for det in current_frame_detection:
                 self.object_map_.append(ObjectMarker(det))
-            self.publish_convex_hull_marker()
             return
         else:
             self.data_association(current_frame_detection)
-
-            # publish object list
-            self.publish_convex_hull_marker()
 
 
     def people_callback(self, data):
@@ -279,7 +321,6 @@ class ObjectMap:
             if if_occupied == True:
                 self.object_map_[obj_idx].add_occupied_times()
         
-        print(self.occupied_)
         for idx in range(len(self.object_map_)):
             # if an object has been occupied for more than a certain number of frames
             # set need clean to be true
@@ -290,6 +331,14 @@ class ObjectMap:
 def main(args):
     rospy.init_node('object_map_server', anonymous=True)
     object_map_server = ObjectMap()
+
+    # Publish object marker in the main loop
+    rate = rospy.Rate(10) # 10hz
+    while not rospy.is_shutdown():
+        if not len(object_map_server.object_map_) == 0:
+            object_map_server.publish_convex_hull_marker()
+        rate.sleep()
+
     rospy.spin()
 
 if __name__ == '__main__':
