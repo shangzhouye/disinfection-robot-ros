@@ -47,6 +47,9 @@ class ObjectMarker:
     
     def add_occupied_times(self):
         self.occupied_ += 1
+    
+    def reset_occupied_times(self):
+        self.occupied_ = 0
 
     def set_need_clean(self):
         self.need_clean_ = True
@@ -78,7 +81,7 @@ class ObjectMap:
 
         self.iou_thresh_ = 0.05 # iou threshold for data association
         self.dist_thresh_ = 0.6 # the distance from a person to an object for the object to be considered as occupied
-        self.need_clean_thresh_ = 60 # how many frame an object is occupied make it needs to be cleaned
+        self.need_clean_thresh_ = 80 # how many frame an object is occupied make it needs to be cleaned
         self.duplicate_iou_thresh_ = 0.8 # threshold to view two detections as duplicate in the same frame
 
         self.tf_listener_ = TransformListener()
@@ -103,7 +106,9 @@ class ObjectMap:
             line_strip.scale.x = 0.05
 
             line_strip.color.g = 1.0
-            if self.object_map_[i].need_clean_ == True:
+            if self.object_map_[i].occupied_ > 0:
+                line_strip.color.r = self.object_map_[i].occupied_ / float(self.need_clean_thresh_)
+            elif self.object_map_[i].need_clean_ == True:
                 line_strip.color.r = 1.0
             else:
                 line_strip.color.b = 1.0
@@ -336,6 +341,8 @@ class ObjectMap:
             
             if if_occupied == True:
                 self.object_map_[obj_idx].add_occupied_times()
+            else:
+                self.object_map_[obj_idx].reset_occupied_times()
         
         for idx in range(len(self.object_map_)):
             # if an object has been occupied for more than a certain number of frames
