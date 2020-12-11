@@ -4,9 +4,6 @@
 
 Note that the initialization of objects are important
 
-Todos:
-- only set to can clean when an object is not occupied for a few consecutive frames
-
 PARAMETERS:
     ground_plane_height_
     iou_thresh_
@@ -24,6 +21,7 @@ from geometry_msgs.msg import Point
 from geometry_msgs.msg import Pose
 import numpy as np
 import sys
+import copy
 # use shapely for IoU calculation of polygons
 import shapely.geometry
 
@@ -128,6 +126,24 @@ class ObjectMap:
             line_strip.lifetime = rospy.Duration(0)
 
             marker_array.markers.append(line_strip)
+
+            # Add 'Need Disinfection' tag
+            if self.object_map_[i].need_clean_ == True:
+                text_marker = Marker()
+                text_marker.header = copy.deepcopy(line_strip.header)
+                text_marker.action = Marker.ADD
+                text_marker.ns = "disinfection_tag"
+                text_marker.id = copy.deepcopy(line_strip.id)
+                text_marker.lifetime = rospy.Duration(0)
+                text_marker.type = Marker.TEXT_VIEW_FACING
+                text_marker.scale.z = 0.2
+                text_marker.pose.position = copy.deepcopy(line_strip.points[0])
+                text_marker.pose.position.z += 0.3
+                text_marker.color.r = 1.0
+                text_marker.color.g = 1.0
+                text_marker.color.a = 1.0
+                text_marker.text = "Need Disinfection"
+                marker_array.markers.append(text_marker)
         
         self.result_pub_.publish(marker_array)
 
