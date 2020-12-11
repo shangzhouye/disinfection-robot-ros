@@ -150,9 +150,11 @@ public:
     *
     *  \param polygon - indices points of a convex hull
     *  \param marker_array - return line strip markers
+    *  \param class_id - the class id of the object
     */
     void polygon_marker(PointCloud::Ptr polygon,
-                        visualization_msgs::MarkerArray &marker_array);
+                        visualization_msgs::MarkerArray &marker_array,
+                        int class_id);
 
     /*! \brief project the point cloud onto image plane using extrinsics
     *

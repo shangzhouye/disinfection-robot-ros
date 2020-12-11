@@ -33,11 +33,12 @@ from tf import TransformListener
 from geometry_msgs.msg import PoseStamped
 
 class ObjectMarker:
-    def __init__(self, points):
+    def __init__(self, points, class_text):
         self.points_ = points # stores all the points of the convex hull
         self.associated_times_ = 1 # record how many times an object has been associated
         self.occupied_ = 0 # record how many frames an object has been occupied (a person is there)
         self.need_clean_ = False # record whether an object needs disinfection
+        self.class_text_ = class_text # Visualization text
 
     def update_points(self, new_points):
         self.points_ = new_points
@@ -106,10 +107,11 @@ class ObjectMap:
             line_strip.scale.x = 0.05
 
             line_strip.color.g = 1.0
-            if self.object_map_[i].occupied_ > 0:
-                line_strip.color.r = self.object_map_[i].occupied_ / float(self.need_clean_thresh_)
-            elif self.object_map_[i].need_clean_ == True:
+
+            if self.object_map_[i].need_clean_ == True:
                 line_strip.color.r = 1.0
+            elif self.object_map_[i].occupied_ > 0:
+                line_strip.color.r = self.object_map_[i].occupied_ / float(self.need_clean_thresh_)
             else:
                 line_strip.color.b = 1.0
             
@@ -132,6 +134,14 @@ class ObjectMap:
 
             marker_array.markers.append(line_strip)
 
+            # publish class tag
+            class_tag = copy.deepcopy(self.object_map_[i].class_text_)
+            class_tag.header = copy.deepcopy(line_strip.header)
+            class_tag.ns = "class_tag"
+            class_tag.id = copy.deepcopy(line_strip.id)
+            class_tag.lifetime = rospy.Duration(0)
+            marker_array.markers.append(class_tag)
+
             # Add 'Need Disinfection' tag
             if self.object_map_[i].need_clean_ == True:
                 text_marker = Marker()
@@ -143,7 +153,7 @@ class ObjectMap:
                 text_marker.type = Marker.TEXT_VIEW_FACING
                 text_marker.scale.z = 0.2
                 text_marker.pose.position = copy.deepcopy(line_strip.points[0])
-                text_marker.pose.position.z += 0.3
+                text_marker.pose.position.z += 0.5
                 text_marker.color.r = 1.0
                 text_marker.color.g = 1.0
                 text_marker.color.a = 1.0
@@ -164,7 +174,7 @@ class ObjectMap:
         iou = poly_1.intersection(poly_2).area / poly_1.union(poly_2).area
         return iou
 
-    def data_association(self, current_frame_detection):
+    def data_association(self, current_frame_detection_tuple):
         ''' Implement the data association pipeline
         '''
         # create a matrix of IoU scores
@@ -180,12 +190,12 @@ class ObjectMap:
         Detection A is a new object
         '''
 
-        iou_matrix = np.zeros((len(current_frame_detection), len(self.object_map_)))
+        iou_matrix = np.zeros((len(current_frame_detection_tuple), len(self.object_map_)))
 
         for i in range(iou_matrix.shape[0]):
             for j in range(iou_matrix.shape[1]):
                 # calculate iou and fill the matrix
-                iou = self.calculate_iou(current_frame_detection[i], self.object_map_[j].points_)
+                iou = self.calculate_iou(current_frame_detection_tuple[i][0], self.object_map_[j].points_)
                 # it can be a new detection is iou is below the threshold
                 if iou <= self.iou_thresh_:
                     iou = 0
@@ -196,7 +206,8 @@ class ObjectMap:
             # find new detections
             if np.sum(iou_matrix[i, :]) == 0:
                 # this is a new detection
-                self.object_map_.append(ObjectMarker(current_frame_detection[i]))
+                self.object_map_.append(ObjectMarker(current_frame_detection_tuple[i][0], \
+                                                        current_frame_detection_tuple[i][1]))
                 new_detection_idx.append(i)
 
         not_matched_objects = []
@@ -224,7 +235,7 @@ class ObjectMap:
             # otherwise, get a new convex hull
             self.object_map_[matched_object_in_map].add_associated_times()
             new_points = np.append(self.object_map_[matched_object_in_map].points_, \
-                                    current_frame_detection[matched_detection],\
+                                    current_frame_detection_tuple[matched_detection][0],\
                                     axis = 0)
             
             new_convex_hull = ConvexHull(new_points)
@@ -249,26 +260,26 @@ class ObjectMap:
             return False
 
 
-    def remove_duplication_detection(self, current_frame_detection):
+    def remove_duplication_detection(self, current_frame_detection_tuple):
         ''' Remove duplicate detection and combine them into one convex hull
         '''
         output = []
-        for i in range(len(current_frame_detection)):
+        for i in range(len(current_frame_detection_tuple)):
             no_duplicate = True
 
-            for j in range(i + 1, len(current_frame_detection)):
-                if self.check_duplicate(current_frame_detection[i], current_frame_detection[j]):
+            for j in range(i + 1, len(current_frame_detection_tuple)):
+                if self.check_duplicate(current_frame_detection_tuple[i][0], current_frame_detection_tuple[j][0]):
                     no_duplicate = False
-                    new_points = np.append(current_frame_detection[i], \
-                                            current_frame_detection[j],\
+                    new_points = np.append(current_frame_detection_tuple[i][0], \
+                                            current_frame_detection_tuple[j][0],\
                                             axis = 0)
                     new_convex_hull = ConvexHull(new_points)
                     # update the new convex hull to the latter one
                     # it will then be added to the output when the loop traverse to there
-                    current_frame_detection[j] = new_points[new_convex_hull.vertices, :]
+                    current_frame_detection_tuple[j][0] = new_points[new_convex_hull.vertices, :]
             
             if no_duplicate:
-                output.append(current_frame_detection[i])
+                output.append(current_frame_detection_tuple[i])
         
         return output
 
@@ -276,29 +287,33 @@ class ObjectMap:
     def convex_hull_callback(self, data):
         # subcribe to all the objects (convex hull) in current frame
 
-        current_frame_detection = [] # stores all the objects in this frame, a list of numpy arrays
+        current_frame_detection_tuple = [] # stores all the objects in this frame, a list of numpy arrays
 
-        for marker in data.markers:
+        data_idx = 0
+        while data_idx < len(data.markers):
+
             object_convex_hull =  np.empty((0,2), float)
-            for point in marker.points:
+            for point in data.markers[data_idx].points:
                 # add each point into the list
                 object_convex_hull = np.append(object_convex_hull, [[point.x, point.y]], axis=0)
             
-            current_frame_detection.append(object_convex_hull)
+            current_frame_detection_tuple.append([object_convex_hull, data.markers[data_idx + 1]])
 
-        if (len(current_frame_detection) == 0):
+            data_idx += 2
+
+        if (len(current_frame_detection_tuple) == 0):
             return
         
-        current_frame_detection = self.remove_duplication_detection(current_frame_detection)
+        current_frame_detection_tuple = self.remove_duplication_detection(current_frame_detection_tuple)
 
         # do data association using the Hungarian algorithm
         if len(self.object_map_) == 0:
             # initailize the map
-            for det in current_frame_detection:
-                self.object_map_.append(ObjectMarker(det))
+            for det in current_frame_detection_tuple:
+                self.object_map_.append(ObjectMarker(det[0], det[1]))
             return
         else:
-            self.data_association(current_frame_detection)
+            self.data_association(current_frame_detection_tuple)
 
 
     def people_callback(self, data):

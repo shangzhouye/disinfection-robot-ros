@@ -235,7 +235,8 @@ PointCloud::Ptr ObjectDetectorV2::find_2D_convex_hull(PointCloud::Ptr in_cloud)
 }
 
 void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
-                                      visualization_msgs::MarkerArray &marker_array)
+                                      visualization_msgs::MarkerArray &marker_array,
+                                      int class_id)
 {
     visualization_msgs::Marker line_strip;
     line_strip.header.frame_id = "map";
@@ -275,6 +276,30 @@ void ObjectDetectorV2::polygon_marker(PointCloud::Ptr polygon,
     line_strip.lifetime = ros::Duration(1.0 / loop_rate_);
 
     marker_array.markers.push_back(line_strip);
+
+    visualization_msgs::Marker text;
+    text.header = line_strip.header;
+    text.action = visualization_msgs::Marker::ADD;
+    text.lifetime = ros::Duration(1.0 / loop_rate_);
+
+    text.ns = "class_text_per_frame";
+    text.id = marker_id_;
+    text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    text.scale.z = 0.2;
+
+    text.pose.position = line_strip.points[0];
+    text.pose.position.z += 0.3;
+    text.color.r = text.color.g = text.color.b = text.color.a = 1.0;
+    if (class_id == 60)
+    { // 60 is the dinning table class
+        text.text = "Table";
+    }
+    else
+    {
+        text.text = "Chair";
+    }
+
+    marker_array.markers.push_back(text);
 
     marker_id_++;
 }
@@ -410,10 +435,12 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
     visualization_msgs::MarkerArray polygon_array;
 
     // for each object cloud, do downsampling and clustering
+    int counter = -1;
     for (auto each_object : objects_clouds)
     {
         // downsampling
         // voxel_filter(each_object, 0.01);
+        counter++;
 
         cloud_2d(each_object);
         find_largest_cluster(each_object);
@@ -425,7 +452,7 @@ void ObjectDetectorV2::mask_callback(const sensor_msgs::PointCloud2::ConstPtr &r
         }
         PointCloud::Ptr convex_hull_cloud = find_2D_convex_hull(each_object);
         velodyne2map_frame(convex_hull_cloud);
-        polygon_marker(convex_hull_cloud, polygon_array);
+        polygon_marker(convex_hull_cloud, polygon_array, mask_result->class_ids[counter]);
     }
 
     // visualize again after clustering

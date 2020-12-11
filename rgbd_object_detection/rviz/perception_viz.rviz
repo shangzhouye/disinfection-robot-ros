@@ -289,7 +289,7 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 100
+      Max Intensity: 105
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: PointCloud2
@@ -389,18 +389,19 @@ Visualization Manager:
       Unreliable: false
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /object_convex_hull
       Name: MarkerArray
       Namespaces:
-        current_frame_convex: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /object_map
       Name: MarkerArray
       Namespaces:
+        class_tag: true
         object_map: true
       Queue Size: 100
       Value: true
