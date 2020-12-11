@@ -34,7 +34,7 @@ Visualization Manager:
   Class: ""
   Displays:
     - Alpha: 0.5
-      Cell Size: 1
+      Cell Size: 100
       Class: rviz/Grid
       Color: 209; 209; 214
       Enabled: false
@@ -289,7 +289,7 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 110
+      Max Intensity: 100
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: PointCloud2
@@ -345,8 +345,8 @@ Visualization Manager:
       Class: rviz/PointCloud2
       Color: 255; 255; 255
       Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: false
+      Decay Time: 0.10000000149011612
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -363,7 +363,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Class: rviz/Image
       Enabled: true
       Image Topic: /maskrcnn
@@ -393,7 +393,7 @@ Visualization Manager:
       Marker Topic: /object_convex_hull
       Name: MarkerArray
       Namespaces:
-        {}
+        current_frame_convex: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -401,7 +401,7 @@ Visualization Manager:
       Marker Topic: /object_map
       Name: MarkerArray
       Namespaces:
-        {}
+        object_map: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
