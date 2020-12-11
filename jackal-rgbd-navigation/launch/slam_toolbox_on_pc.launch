@@ -1,5 +1,10 @@
 <launch>
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find jackal-rgbd-navigation)/rviz/slam_toolbox_navigation.rviz" />
-
+    
+    <arg name="config" value="base" /> 
+    <include file="$(find jackal_description)/launch/description.launch">
+        <arg name="config" value="$(arg config)" />
+    </include>
+    
 </launch>
