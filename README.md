@@ -6,7 +6,7 @@
 
 ## Overview
 
-This project built a full-stack disinfection robot with perception, localization, mapping, and navigation capability. The robot is able to classify and localize tables/desks/chairs, as well as to detect and track people in an indoor environment. After a table/desk/chair being used by a human, the robot will approach the table/desk/chair to do the disinfection.
+This project built a full-stack disinfection robot with perception, localization, mapping, and navigation capability. The robot is able to classify and localize tables/desks/chairs, as well as to detect and track people in an indoor environment. After a table/desk/chair being used by a human, the robot will approach the table/desk/chair to do the disinfection. Checkout [this post](https://shangzhouye.tech/featured-projects/disinfection_robot/) for a detailed description of this project.
 
 ## Dependency
 
